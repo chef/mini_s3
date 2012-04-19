@@ -76,10 +76,17 @@ format_timestamp({{Yr, Mo, Da}, {H, M, S}}) ->
                       [Yr, Mo, Da, H, M, S])).
 
 default_config() ->
-    case get(aws_config) of
+    case application:get_env(erlcloud, aws_defaults) of
         undefined ->
-            #aws_config{access_key_id=os:getenv("AWS_ACCESS_KEY_ID"),
-                        secret_access_key=os:getenv("AWS_SECRET_ACCESS_KEY")};
-        Config ->
-            Config
+            throw({error, missing_aws_defaults});
+        {ok, Defaults} ->
+            case lists:member(key_id, Defaults) andalso
+                 lists:member(secret_access_key, Defaults) of
+                true ->
+                    {key_id, Key} = lists:keyfind(key_id, Defaults),
+                    {secret_access_key, AccessKey} = lists:keyfind(secret_access_key, Defaults),
+                    #aws_config{access_key_id=Key, secret_access_key=AccessKey};
+                false ->
+                    throw({error, missing_aws_defaults})
+            end
     end.

@@ -1,22 +1,22 @@
 %% Amazon Simple Storage Service (S3)
 
 -module(erlcloud_s3).
--export([new/2, new/3, configure/2, configure/3,
-         create_bucket/1, create_bucket/2, create_bucket/3,
+-export([new/2, new/3,
+         create_bucket/3,
          delete_bucket/1, delete_bucket/2,
          get_bucket_attribute/2, get_bucket_attribute/3,
          list_buckets/0, list_buckets/1,
          set_bucket_attribute/3, set_bucket_attribute/4,
-         list_objects/1, list_objects/2, list_objects/3,
-         list_object_versions/1, list_object_versions/2, list_object_versions/3,
-         copy_object/4, copy_object/5, copy_object/6,
+         list_objects/2, list_objects/3,
+         list_object_versions/2, list_object_versions/3,
+         copy_object/5, copy_object/6,
          delete_object/2, delete_object/3,
          delete_object_version/3, delete_object_version/4,
-         get_object/2, get_object/3,
+         get_object/3,
          get_object_acl/2, get_object_acl/3, get_object_acl/4,
          get_object_torrent/2, get_object_torrent/3,
-         get_object_metadata/2, get_object_metadata/3, get_object_metadata/4,
-         put_object/3, put_object/4, put_object/5, put_object/6,
+         get_object_metadata/3, get_object_metadata/4,
+         put_object/5, put_object/6,
          set_object_acl/3, set_object_acl/4]).
 
 -include_lib("erlcloud/include/erlcloud.hrl").
@@ -40,18 +40,6 @@ new(AccessKeyID, SecretAccessKey, Host) ->
      ec2_host=Host
     }.
 
--spec configure(string(), string()) -> ok.
-
-configure(AccessKeyID, SecretAccessKey) ->
-    put(aws_config, new(AccessKeyID, SecretAccessKey)),
-    ok.
-
--spec configure(string(), string(), string()) -> ok.
-
-configure(AccessKeyID, SecretAccessKey, Host) ->
-    put(aws_config, new(AccessKeyID, SecretAccessKey, Host)),
-    ok.
-
 -type s3_bucket_attribute_name() :: acl 
                                   | location 
                                   | logging 
@@ -71,22 +59,13 @@ configure(AccessKeyID, SecretAccessKey, Host) ->
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
--spec copy_object(string(), string(), string(), string()) -> proplist().
-
-copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName) ->
-    copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, []).
-
--spec copy_object(string(), string(), string(), string(), proplist() | aws_config()) -> proplist().
-
-copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Config)
-  when is_record(Config, aws_config) ->
-    copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, [], Config);
+-spec copy_object(string(), string(), string(), string(), proplist()) -> proplist().
 
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
-    copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName,
-                Options, default_config()).
+    copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, erlcloud_aws:default_config()).
 
 -spec copy_object(string(), string(), string(), string(), proplist(), aws_config()) -> proplist().
+
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
     SrcVersion = case proplists:get_value(version_id, Options) of
                      undefined -> "";
@@ -105,28 +84,10 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Con
     [{copy_source_version_id, proplists:get_value("x-amz-copy-source-version-id", Headers, "false")},
      {version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
--spec create_bucket(string()) -> ok.
-
-create_bucket(BucketName) ->
-    create_bucket(BucketName, private).
-
--spec create_bucket(string(), s3_bucket_acl() | aws_config()) -> ok.
-
-create_bucket(BucketName, Config)
-  when is_record(Config, aws_config) ->
-    create_bucket(BucketName, private, Config);
-
-create_bucket(BucketName, ACL) ->
-    create_bucket(BucketName, ACL, none).
-
--spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint() | aws_config()) -> ok.
-
-create_bucket(BucketName, ACL, Config)
-  when is_record(Config, aws_config) ->
-    create_bucket(BucketName, ACL, none, Config);
+-spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint()) -> ok.
 
 create_bucket(BucketName, ACL, LocationConstraint) ->
-    create_bucket(BucketName, ACL, LocationConstraint, default_config()).
+    create_bucket(BucketName, ACL, LocationConstraint, erlcloud_aws:default_config()).
 
 -spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint(), aws_config()) -> ok.
 
@@ -157,7 +118,7 @@ encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 -spec delete_bucket(string()) -> ok.
 
 delete_bucket(BucketName) ->
-    delete_bucket(BucketName, default_config()).
+    delete_bucket(BucketName, erlcloud_aws:default_config()).
 
 -spec delete_bucket(string(), aws_config()) -> ok.
 
@@ -168,7 +129,7 @@ delete_bucket(BucketName, Config)
 -spec delete_object(string(), string()) -> proplist().
 
 delete_object(BucketName, Key) ->
-    delete_object(BucketName, Key, default_config()).
+    delete_object(BucketName, Key, erlcloud_aws:default_config()).
 
 -spec delete_object(string(), string(), aws_config()) -> proplist().
 
@@ -183,7 +144,7 @@ delete_object(BucketName, Key, Config)
 -spec delete_object_version(string(), string(), string()) -> proplist().
 
 delete_object_version(BucketName, Key, Version) ->
-    delete_object_version(BucketName, Key, Version, default_config()).
+    delete_object_version(BucketName, Key, Version, erlcloud_aws:default_config()).
 
 -spec delete_object_version(string(), string(), string(), aws_config()) -> proplist().
 
@@ -201,7 +162,7 @@ delete_object_version(BucketName, Key, Version, Config)
 -spec list_buckets() -> proplist().
 
 list_buckets() ->
-    list_buckets(default_config()).
+    list_buckets(erlcloud_aws:default_config()).
 
 -spec list_buckets(aws_config()) -> proplist().
 
@@ -210,19 +171,10 @@ list_buckets(Config) ->
     Buckets = [extract_bucket(Node) || Node <- xmerl_xpath:string("/*/Buckets/Bucket", Doc)],
     [{buckets, Buckets}].
 
--spec list_objects(string()) -> proplist().
-
-list_objects(BucketName) ->
-    list_objects(BucketName, []).
-
--spec list_objects(string(), proplist() | aws_config()) -> proplist().
-
-list_objects(BucketName, Config)
-  when is_record(Config, aws_config) ->
-    list_objects(BucketName, [], Config);
+-spec list_objects(string(), proplist()) -> proplist().
 
 list_objects(BucketName, Options) ->
-    list_objects(BucketName, Options, default_config()).
+    list_objects(BucketName, Options, erlcloud_aws:default_config()).
 
 -spec list_objects(string(), proplist(), aws_config()) -> proplist().
 
@@ -260,7 +212,7 @@ extract_user([Node]) ->
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name()) -> term().
 
 get_bucket_attribute(BucketName, AttributeName) ->
-    get_bucket_attribute(BucketName, AttributeName, default_config()).
+    get_bucket_attribute(BucketName, AttributeName, erlcloud_aws:default_config()).
 
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name(), aws_config()) -> term().
 
@@ -323,19 +275,10 @@ decode_permission("WRITE_ACP")    -> write_acp;
 decode_permission("READ")         -> read;
 decode_permission("READ_ACP")     -> read_acp.
 
--spec get_object(string(), string()) -> proplist().
-
-get_object(BucketName, Key) ->
-    get_object(BucketName, Key, []).
-
--spec get_object(string(), string(), proplist() | aws_config()) -> proplist().
-
-get_object(BucketName, Key, Config)
-  when is_record(Config, aws_config) ->
-    get_object(BucketName, Key, [], Config);
+-spec get_object(string(), string(), proplist()) -> proplist().
 
 get_object(BucketName, Key, Options) ->
-    get_object(BucketName, Key, Options, default_config()).
+    get_object(BucketName, Key, Options, erlcloud_aws:default_config()).
 
 -spec get_object(string(), string(), proplist(), aws_config()) -> proplist().
 
@@ -361,7 +304,7 @@ get_object(BucketName, Key, Options, Config) ->
 -spec get_object_acl(string(), string()) -> proplist().
 
 get_object_acl(BucketName, Key) ->
-    get_object_acl(BucketName, Key, default_config()).
+    get_object_acl(BucketName, Key, erlcloud_aws:default_config()).
 
 -spec get_object_acl(string(), string(), proplist() | aws_config()) -> proplist().
 
@@ -370,7 +313,7 @@ get_object_acl(BucketName, Key, Config)
     get_object_acl(BucketName, Key, [], Config);
 
 get_object_acl(BucketName, Key, Options) ->
-    get_object_acl(BucketName, Key, Options, default_config()).
+    get_object_acl(BucketName, Key, Options, erlcloud_aws:default_config()).
 
 -spec get_object_acl(string(), string(), proplist(), aws_config()) -> proplist().
 
@@ -385,21 +328,12 @@ get_object_acl(BucketName, Key, Options, Config)
                   {access_control_list, "AccessControlList/Grant", fun extract_acl/1}],
     erlcloud_xml:decode(Attributes, Doc).
 
--spec get_object_metadata(string(), string()) -> proplist().
-
-get_object_metadata(BucketName, Key) ->
-    get_object_metadata(BucketName, Key, []).
-
--spec get_object_metadata(string(), string(), proplist() | aws_config()) -> proplist().
-
-get_object_metadata(BucketName, Key, Config)
-  when is_record(Config, aws_config) ->
-    get_object_metadata(BucketName, Key, [], Config);
+-spec get_object_metadata(string(), string(), proplist()) -> proplist().
 
 get_object_metadata(BucketName, Key, Options) ->
-    get_object_metadata(BucketName, Key, Options, default_config()).
+    get_object_metadata(BucketName, Key, Options, erlcloud_aws:default_config()).
 
--spec get_object_metadata(string(), string(), proplist(), proplist() | aws_config()) -> proplist().
+-spec get_object_metadata(string(), string(), proplist(), aws_config()) -> proplist().
 
 get_object_metadata(BucketName, Key, Options, Config) ->
     RequestHeaders = [{"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
@@ -424,7 +358,7 @@ extract_metadata(Headers) ->
 -spec get_object_torrent(string(), string()) -> proplist().
 
 get_object_torrent(BucketName, Key) ->
-    get_object_torrent(BucketName, Key, default_config()).
+    get_object_torrent(BucketName, Key, erlcloud_aws:default_config()).
 
 -spec get_object_torrent(string(), string(), aws_config()) -> proplist().
 
@@ -434,19 +368,10 @@ get_object_torrent(BucketName, Key, Config) ->
      {version_id, proplists:get_value("x-amz-delete-marker", Headers, "false")},
      {torrent, list_to_binary(Body)}].
 
--spec list_object_versions(string()) -> proplist().
-
-list_object_versions(BucketName) ->
-    list_object_versions(BucketName, []).
-
--spec list_object_versions(string(), proplist() | aws_config()) -> proplist().
-
-list_object_versions(BucketName, Config)
-  when is_record(Config, aws_config) ->
-    list_object_versions(BucketName, [], Config);
+-spec list_object_versions(string(), proplist()) -> proplist().
 
 list_object_versions(BucketName, Options) ->
-    list_object_versions(BucketName, Options, default_config()).
+    list_object_versions(BucketName, Options, erlcloud_aws:default_config()).
 
 -spec list_object_versions(string(), proplist(), aws_config()) -> proplist().
 
@@ -498,28 +423,10 @@ extract_bucket(Node) ->
                          {creation_date, "CreationDate", time}], 
                         Node).
 
--spec put_object(string(), string(), iolist()) -> proplist().
-
-put_object(BucketName, Key, Value) ->
-    put_object(BucketName, Key, Value, []).
-
--spec put_object(string(), string(), iolist(), proplist() | aws_config()) -> proplist().
-
-put_object(BucketName, Key, Value, Config)
-  when is_record(Config, aws_config) ->
-    put_object(BucketName, Key, Value, [], Config);
-
-put_object(BucketName, Key, Value, Options) ->
-    put_object(BucketName, Key, Value, Options, default_config()).
-
 -spec put_object(string(), string(), iolist(), proplist(), [{string(), string()}] | aws_config()) -> proplist().
 
-put_object(BucketName, Key, Value, Options, Config)
-  when is_record(Config, aws_config) ->
-    put_object(BucketName, Key, Value, Options, [], Config);
-
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
-    put_object(BucketName, Key, Value, Options, HTTPHeaders, default_config()).
+    put_object(BucketName, Key, Value, Options, HTTPHeaders, erlcloud_aws:default_config()).
 
 -spec put_object(string(), string(), iolist(), proplist(), [{string(), string()}], aws_config()) -> proplist().
 
@@ -538,7 +445,7 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
 -spec set_object_acl(string(), string(), proplist()) -> ok.
 
 set_object_acl(BucketName, Key, ACL) ->
-    set_object_acl(BucketName, Key, ACL, default_config()).
+    set_object_acl(BucketName, Key, ACL, erlcloud_aws:default_config()).
 
 -spec set_object_acl(string(), string(), proplist(), aws_config()) -> ok.
 
@@ -556,7 +463,7 @@ set_object_acl(BucketName, Key, ACL, Config)
 -spec set_bucket_attribute(string(), atom(), term()) -> ok.
 
 set_bucket_attribute(BucketName, AttributeName, Value) ->
-    set_bucket_attribute(BucketName, AttributeName, Value, default_config()).
+    set_bucket_attribute(BucketName, AttributeName, Value, erlcloud_aws:default_config()).
 
 -spec set_bucket_attribute(string(), atom(), term(), aws_config()) -> ok.
 
@@ -711,5 +618,3 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    ],
     Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
     ["AWS ", Config#aws_config.access_key_id, $:, Signature].
-
-default_config() -> erlcloud_aws:default_config().
