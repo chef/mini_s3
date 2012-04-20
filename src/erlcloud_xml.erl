@@ -1,6 +1,5 @@
 -module(erlcloud_xml).
--export([decode/2, decode/3, get_bool/2, get_float/2, get_integer/2, get_list/2,
-         get_text/1, get_text/2, get_text/3, get_time/2]).
+-export([decode/2, get_text/2]).
 
 -include_lib("xmerl/include/xmerl.hrl").
 
@@ -14,16 +13,6 @@ decode(Values, Node) ->
                         [{Name, Value}|Output]
                 end
             end, [], Values)
-    ).
-
-decode(Values, Node, Record) ->
-    lists:foldl(
-        fun ({Index, XPath, Type}, Output) ->
-            case get_value(XPath, Type, Node) of
-                undefined -> Output;
-                Value -> setelement(Index, Output, Value)
-            end
-        end, Record, Values
     ).
 
 get_value(XPath, Type, Node) ->
