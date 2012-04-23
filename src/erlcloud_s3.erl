@@ -344,7 +344,7 @@ get_object_metadata(BucketName, Key, Options, Config) ->
                       undefined -> "";
                       Version   -> ["versionId=", Version]
                   end,
-    {Headers, _Body} = s3_request(Config, get, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
     [{last_modified, proplists:get_value("last-modified", Headers)},
      {etag, proplists:get_value("etag", Headers)},
      {content_length, proplists:get_value("content-length", Headers)},
@@ -592,6 +592,7 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
     Response = case Method of
         get -> httpc:request(Method, {RequestURI, RequestHeaders}, [], []);
         delete -> httpc:request(Method, {RequestURI, RequestHeaders}, [], []);
+        head -> httpc:request(Method, {RequestURI, RequestHeaders}, [], []);
         _ -> httpc:request(Method, {RequestURI, RequestHeaders, ContentType, Body}, [], [])
     end,
     case Response of
