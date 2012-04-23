@@ -80,11 +80,11 @@ default_config() ->
         undefined ->
             throw({error, missing_aws_defaults});
         {ok, Defaults} ->
-            case lists:member(key_id, Defaults) andalso
-                 lists:member(secret_access_key, Defaults) of
+            case proplists:is_defined(key_id, Defaults) andalso
+                 proplists:is_defined(secret_access_key, Defaults) of
                 true ->
-                    {key_id, Key} = lists:keyfind(key_id, Defaults),
-                    {secret_access_key, AccessKey} = lists:keyfind(secret_access_key, Defaults),
+                    {key_id, Key} = proplists:lookup(key_id, Defaults),
+                    {secret_access_key, AccessKey} = proplists:lookup(secret_access_key, Defaults),
                     #aws_config{access_key_id=Key, secret_access_key=AccessKey};
                 false ->
                     throw({error, missing_aws_defaults})
