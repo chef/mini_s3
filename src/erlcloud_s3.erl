@@ -16,12 +16,15 @@
          get_object_acl/2, get_object_acl/3, get_object_acl/4,
          get_object_torrent/2, get_object_torrent/3,
          get_object_metadata/3, get_object_metadata/4,
+         s3_url/5,
          put_object/5, put_object/6,
          set_object_acl/3, set_object_acl/4]).
 
 -include_lib("erlcloud/include/erlcloud.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
+
+-include_lib("eunit/include/eunit.hrl").
 
 -spec new(string(), string()) -> aws_config().
 
@@ -40,21 +43,21 @@ new(AccessKeyID, SecretAccessKey, Host) ->
      ec2_host=Host
     }.
 
--type s3_bucket_attribute_name() :: acl 
-                                  | location 
-                                  | logging 
-                                  | request_payment 
+-type s3_bucket_attribute_name() :: acl
+                                  | location
+                                  | logging
+                                  | request_payment
                                   | versioning.
 
--type s3_bucket_acl() :: private 
-                       | public_read 
-                       | public_read_write 
-                       | authenticated_read 
-                       | bucket_owner_read 
+-type s3_bucket_acl() :: private
+                       | public_read
+                       | public_read_write
+                       | authenticated_read
+                       | bucket_owner_read
                        | bucket_owner_full_control.
 
--type s3_location_constraint() :: none 
-                                | us_west_1 
+-type s3_location_constraint() :: none
+                                | us_west_1
                                 | eu.
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
@@ -71,7 +74,7 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Con
                      undefined -> "";
                      VersionID -> ["?versionId=", VersionID]
                  end,
-    RequestHeaders = 
+    RequestHeaders =
         [{"x-amz-copy-source", [SrcBucketName, $/, SrcKeyName, SrcVersion]},
          {"x-amz-metadata-directive", proplists:get_value(metadata_directive, Options)},
          {"x-amz-copy-source-if-match", proplists:get_value(if_match, Options)},
@@ -149,10 +152,10 @@ delete_object_version(BucketName, Key, Version) ->
 -spec delete_object_version(string(), string(), string(), aws_config()) -> proplist().
 
 delete_object_version(BucketName, Key, Version, Config)
-  when is_list(BucketName), 
-       is_list(Key), 
+  when is_list(BucketName),
+       is_list(Key),
        is_list(Version)->
-    {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key], 
+    {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key],
                                   ["versionId=", Version], [], <<>>, []),
     Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
     Id = proplists:get_value("x-amz-version-id", Headers, "null"),
@@ -179,7 +182,7 @@ list_objects(BucketName, Options) ->
 -spec list_objects(string(), proplist(), aws_config()) -> proplist().
 
 list_objects(BucketName, Options, Config)
-  when is_list(BucketName), 
+  when is_list(BucketName),
        is_list(Options) ->
     Params = [{"delimiter", proplists:get_value(delimiter, Options)},
               {"marker", proplists:get_value(marker, Options)},
@@ -235,7 +238,7 @@ get_bucket_attribute(BucketName, AttributeName, Config)
             erlcloud_xml:get_text("/LocationConstraint", Doc);
         logging ->
             case xmerl_xpath:string("/BucketLoggingStatus/LoggingEnabled", Doc) of
-                [] -> 
+                [] ->
                     {enabled, false};
                 [LoggingEnabled] ->
                     Attributes = [{target_bucket, "TargetBucket", text},
@@ -420,7 +423,7 @@ extract_delete_marker(Node) ->
 
 extract_bucket(Node) ->
     erlcloud_xml:decode([{name, "Name", text},
-                         {creation_date, "CreationDate", time}], 
+                         {creation_date, "CreationDate", time}],
                         Node).
 
 -spec put_object(string(), string(), iolist(), proplist(), [{string(), string()}] | aws_config()) -> proplist().
@@ -433,8 +436,8 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
   when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
        is_list(Options) ->
-    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders] 
-        ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} || 
+    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
+        ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
     ContentType = proplists:get_value("content-type", HTTPHeaders, "application/octet_stream"),
     POSTData = {iolist_to_binary(Value), ContentType},
@@ -469,7 +472,7 @@ set_bucket_attribute(BucketName, AttributeName, Value) ->
 
 set_bucket_attribute(BucketName, AttributeName, Value, Config)
   when is_list(BucketName) ->
-    {Subresource, XML} = 
+    {Subresource, XML} =
         case AttributeName of
             acl ->
                 ACLXML = {'AccessControlPolicy',
@@ -561,8 +564,30 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
             XML
     end.
 
+s3_url(Method, BucketName, Key, Lifetime, Config)
+  when is_list(BucketName), is_list(Key) ->
+    ExpireTime = calendar:datetime_to_gregorian_seconds(erlang:universaltime()) -
+        calendar:datetime_to_gregorian_seconds( { {1970, 1, 1}, {0,0,0} } ) + Lifetime,
+    Path = lists:flatten([$/, BucketName, $/ , Key]),
+    EscapedPath = erlcloud_http:url_encode_loose(Path),
+    StringToSign = lists:flatten([string:to_upper(atom_to_list(Method)), $\n,
+                                  $\n, $\n,
+                                  erlang:integer_to_list(ExpireTime), $\n,
+                                  EscapedPath
+                                 ]),
+    Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
+    RequestURI = iolist_to_binary([
+                                   "https://",
+                                   Config#aws_config.s3_host,
+                                   EscapedPath,
+                                   $?, "AWSAccessKeyId=", Config#aws_config.access_key_id,
+                                   $&, "Expires=", erlang:integer_to_list(ExpireTime),
+                                   $&, "Signature=", erlcloud_http:url_encode_loose(Signature)
+                                  ]),
+    RequestURI.
+
 s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    {ContentMD5, ContentType, Body} = 
+    {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} -> {base64:encode(crypto:md5(PD)), CT, PD}; PD -> {"", "", PD}
         end,
