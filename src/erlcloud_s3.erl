@@ -16,7 +16,7 @@
          get_object_acl/2, get_object_acl/3, get_object_acl/4,
          get_object_torrent/2, get_object_torrent/3,
          get_object_metadata/3, get_object_metadata/4,
-         s3_url/5,
+         s3_url/6,
          put_object/5, put_object/6,
          set_object_acl/3, set_object_acl/4]).
 
@@ -277,6 +277,31 @@ decode_permission("WRITE")        -> write;
 decode_permission("WRITE_ACP")    -> write_acp;
 decode_permission("READ")         -> read;
 decode_permission("READ_ACP")     -> read_acp.
+
+
+s3_url(Method, BucketName, Key, Lifetime, ContentMD5, Config)
+  when is_list(BucketName), is_list(Key) ->
+    ExpireTime = calendar:datetime_to_gregorian_seconds(erlang:universaltime()) -
+        calendar:datetime_to_gregorian_seconds( { {1970, 1, 1}, {0,0,0} } ) + Lifetime,
+    Path = lists:flatten([$/, BucketName, $/ , Key]),
+    EscapedPath = erlcloud_http:url_encode_loose(Path),
+    ContentType = "",
+    StringToSign = lists:flatten([string:to_upper(atom_to_list(Method)), $\n,
+                                  ContentMD5, $\n,
+                                  ContentType, $\n,
+                                  erlang:integer_to_list(ExpireTime), $\n,
+                                  EscapedPath
+                                 ]),
+    Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
+    RequestURI = iolist_to_binary([
+                                   "https://",
+                                   Config#aws_config.s3_host,
+                                   EscapedPath,
+                                   $?, "AWSAccessKeyId=", Config#aws_config.access_key_id,
+                                   $&, "Expires=", erlang:integer_to_list(ExpireTime),
+                                   $&, "Signature=", erlcloud_http:url_encode_loose(Signature)
+                                  ]),
+    RequestURI.
 
 -spec get_object(string(), string(), proplist()) -> proplist().
 
@@ -563,28 +588,6 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
         _ ->
             XML
     end.
-
-s3_url(Method, BucketName, Key, Lifetime, Config)
-  when is_list(BucketName), is_list(Key) ->
-    ExpireTime = calendar:datetime_to_gregorian_seconds(erlang:universaltime()) -
-        calendar:datetime_to_gregorian_seconds( { {1970, 1, 1}, {0,0,0} } ) + Lifetime,
-    Path = lists:flatten([$/, BucketName, $/ , Key]),
-    EscapedPath = erlcloud_http:url_encode_loose(Path),
-    StringToSign = lists:flatten([string:to_upper(atom_to_list(Method)), $\n,
-                                  $\n, $\n,
-                                  erlang:integer_to_list(ExpireTime), $\n,
-                                  EscapedPath
-                                 ]),
-    Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
-    RequestURI = iolist_to_binary([
-                                   "https://",
-                                   Config#aws_config.s3_host,
-                                   EscapedPath,
-                                   $?, "AWSAccessKeyId=", Config#aws_config.access_key_id,
-                                   $&, "Expires=", erlang:integer_to_list(ExpireTime),
-                                   $&, "Signature=", erlcloud_http:url_encode_loose(Signature)
-                                  ]),
-    RequestURI.
 
 s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
