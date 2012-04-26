@@ -278,7 +278,7 @@ decode_permission("WRITE_ACP")    -> write_acp;
 decode_permission("READ")         -> read;
 decode_permission("READ_ACP")     -> read_acp.
 
-
+-spec s3_url(atom(), string(), string(), integer(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, ContentMD5, Config)
   when is_list(BucketName), is_list(Key) ->
     ExpireTime = calendar:datetime_to_gregorian_seconds(erlang:universaltime()) -
