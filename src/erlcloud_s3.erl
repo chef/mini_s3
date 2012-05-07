@@ -1,7 +1,8 @@
 %% Amazon Simple Storage Service (S3)
 
 -module(erlcloud_s3).
--export([new/2, new/3,
+
+-export([new/2, new/3, new/4,
          create_bucket/3,
          delete_bucket/1, delete_bucket/2,
          get_bucket_attribute/2, get_bucket_attribute/3,
@@ -41,6 +42,16 @@ new(AccessKeyID, SecretAccessKey, Host) ->
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      ec2_host=Host
+    }.
+
+-spec new(string(), string(), string(), non_neg_integer()) -> aws_config().
+
+new(AccessKeyID, SecretAccessKey, Host, Port) ->
+    #aws_config{
+     access_key_id=AccessKeyID,
+     secret_access_key=SecretAccessKey,
+     ec2_host=Host,
+     s3_port=Port
     }.
 
 -type s3_bucket_attribute_name() :: acl
@@ -662,7 +673,7 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
     RequestURI = lists:flatten([
         "https://",
         case Host of "" -> ""; _ -> [Host, $.] end,
-        Config#aws_config.s3_host,
+        Config#aws_config.s3_host, port_spec(Config),
         EscapedPath,
         case Subresource of "" -> ""; _ -> [$?, Subresource] end,
         if
@@ -701,3 +712,8 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    ],
     Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
     ["AWS ", Config#aws_config.access_key_id, $:, Signature].
+
+port_spec(#aws_config{s3_port=80}) ->
+    "";
+port_spec(#aws_config{s3_port=Port}) ->
+    [":", erlang:integer_to_list(Port)].
