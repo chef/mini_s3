@@ -278,27 +278,81 @@ decode_permission("WRITE_ACP")    -> write_acp;
 decode_permission("READ")         -> read;
 decode_permission("READ_ACP")     -> read_acp.
 
--spec s3_url(atom(), string(), string(), integer(), string(), aws_config()) -> binary().
-s3_url(Method, BucketName, Key, Lifetime, ContentMD5, Config)
-  when is_list(BucketName), is_list(Key) ->
-    ExpireTime = calendar:datetime_to_gregorian_seconds(erlang:universaltime()) -
-        calendar:datetime_to_gregorian_seconds( { {1970, 1, 1}, {0,0,0} } ) + Lifetime,
+
+%% @doc Canonicalizes a proplist of {"Header", "Value"} pairs by
+%% lower-casing all the Headers.
+-spec canonicalize_headers([{Header::string(), Value::string()}]) ->
+                                  [{LowerCaseHeader::string(), Value::string()}].
+canonicalize_headers(Headers) ->
+    [{string:to_lower(H), V} || {H, V} <- Headers ].
+
+%% @doc Retrieves a value from a set of canonicalized headers.  The
+%% given header should already be canonicalized (i.e., lower-cased).
+%% Returns the value or the empty string if no such value was found.
+-spec retrieve_header_value(Header::string(),
+                            AllHeaders::[{Header::string(), Value::string()}]) -> string().
+retrieve_header_value(Header, AllHeaders) ->
+    proplists:get_value(Header, AllHeaders, "").
+
+%% @doc Number of seconds since the Epoch that a request can be valid
+%% for, specified by TimeToLive, which is the number of seconds from
+%% "right now" that a request should be valid.
+-spec expiration_time(TimeToLive::non_neg_integer()) -> Expires::non_neg_integer().
+expiration_time(TimeToLive) ->
+    Epoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
+    Now = calendar:datetime_to_gregorian_seconds(erlang:universaltime()),
+
+    (Now - Epoch) + TimeToLive.
+
+%% @doc Generate an S3 URL using Query String Request Authentication
+%% (see
+%% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
+%% for details).
+%%
+%% Note that this is **NOT** a complete implementation of the S3 Query
+%% String Request Authentication signing protocol.  In particular, it
+%% does nothing with "x-amz-*" headers, nothing for virtual hosted
+%% buckets, and nothing for sub-resources.  It currently works for
+%% relatively simple use cases (e.g., providing URLs to which
+%% third-parties can upload specific files).
+%%
+%% Consult the official documentation (linked above) if you wish to
+%% augment this function's capabilities.
+-spec s3_url(atom(), string(), string(), integer(), proplist(), aws_config()) -> binary().
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders, #aws_config{s3_host=S3Host,
+                                                                  access_key_id=AccessKey,
+                                                                  secret_access_key=SecretKey}) when is_list(BucketName), is_list(Key) ->
+
+    Headers = canonicalize_headers(RawHeaders),
+
+    HttpMethod = string:to_upper(atom_to_list(Method)),
+
+    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
+
     Path = lists:flatten([$/, BucketName, $/ , Key]),
-    EscapedPath = erlcloud_http:url_encode_loose(Path),
-    ContentType = "",
-    StringToSign = lists:flatten([string:to_upper(atom_to_list(Method)), $\n,
+    CanonicalizedResource = erlcloud_http:url_encode_loose(Path),
+
+    ContentType = retrieve_header_value("content-type", Headers),
+    ContentMD5 = retrieve_header_value("content-md5", Headers),
+
+    %% We don't currently use this, but I'm adding a placeholder for future enhancements
+    %% See the URL in the docstring for details
+    CanonicalizedAMZHeaders = "",
+
+    StringToSign = lists:flatten([HttpMethod, $\n,
                                   ContentMD5, $\n,
                                   ContentType, $\n,
-                                  erlang:integer_to_list(ExpireTime), $\n,
-                                  EscapedPath
+                                  Expires, $\n,
+                                  CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
+                                  CanonicalizedResource
                                  ]),
-    Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
+
+    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+
     RequestURI = iolist_to_binary([
-                                   "https://",
-                                   Config#aws_config.s3_host,
-                                   EscapedPath,
-                                   $?, "AWSAccessKeyId=", Config#aws_config.access_key_id,
-                                   $&, "Expires=", erlang:integer_to_list(ExpireTime),
+                                   "https://", S3Host, CanonicalizedResource,
+                                   $?, "AWSAccessKeyId=", AccessKey,
+                                   $&, "Expires=", Expires,
                                    $&, "Signature=", erlcloud_http:url_encode_loose(Signature)
                                   ]),
     RequestURI.
