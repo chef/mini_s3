@@ -2,7 +2,7 @@
 
 -module(erlcloud_s3).
 
--export([new/2, new/3, new/4,
+-export([new/2, new/3,
          create_bucket/3, create_bucket/4,
          delete_bucket/1, delete_bucket/2,
          get_bucket_attribute/2, get_bucket_attribute/3,
@@ -42,16 +42,6 @@ new(AccessKeyID, SecretAccessKey, Host) ->
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_host=Host
-    }.
-
--spec new(string(), string(), string(), non_neg_integer()) -> aws_config().
-
-new(AccessKeyID, SecretAccessKey, Host, Port) ->
-    #aws_config{
-     access_key_id=AccessKeyID,
-     secret_access_key=SecretAccessKey,
-     s3_host=Host,
-     s3_port=Port
     }.
 
 -type s3_bucket_attribute_name() :: acl
@@ -654,6 +644,27 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
             XML
     end.
 
+if_not_empty("", _V) ->
+    "";
+if_not_empty(_, Value) ->
+    Value.
+
+format_s3_uri(Config, Host, EscapedPath, Subresource, Params) ->
+    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
+        http_uri:parse(Config#aws_config.s3_host),
+    lists:flatten([
+                   erlang:atom_to_list(Protocol), "://",
+                   if_not_empty(Host, [Host, $.]),
+                   if_not_empty(UserInfo, [UserInfo, "@"]),
+                   Domain, ":", erlang:integer_to_list(Port),
+                   EscapedPath,
+                   if_not_empty(Subresource, [$?, Subresource]),
+                   if
+                       Params =:= [] -> "";
+                       Subresource =:= "" -> [$?, erlcloud_http:make_query_string(Params)];
+                       true -> [$&, erlcloud_http:make_query_string(Params)]
+                   end]).
+
 s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
@@ -680,18 +691,7 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestURI = lists:flatten([
-        "https://",
-        case Host of "" -> ""; _ -> [Host, $.] end,
-        Config#aws_config.s3_host, port_spec(Config),
-        EscapedPath,
-        case Subresource of "" -> ""; _ -> [$?, Subresource] end,
-        if
-            Params =:= [] -> "";
-            Subresource =:= "" -> [$?, erlcloud_http:make_query_string(Params)];
-            true -> [$&, erlcloud_http:make_query_string(Params)]
-        end
-    ]),
+    RequestURI = format_s3_uri(Config, Host, EscapedPath, Subresource, Params),
     Response = case Method of
         get -> httpc:request(Method, {RequestURI, RequestHeaders}, [], []);
         delete -> httpc:request(Method, {RequestURI, RequestHeaders}, [], []);
@@ -722,8 +722,3 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    ],
     Signature = base64:encode(crypto:sha_mac(Config#aws_config.secret_access_key, StringToSign)),
     ["AWS ", Config#aws_config.access_key_id, $:, Signature].
-
-port_spec(#aws_config{s3_port=80}) ->
-    "";
-port_spec(#aws_config{s3_port=Port}) ->
-    [":", erlang:integer_to_list(Port)].
