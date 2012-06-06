@@ -657,8 +657,17 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
 s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
-            {PD, CT} -> {base64:encode(crypto:md5(PD)), CT, PD};
-            PD -> {"", "", PD}
+            {PD, CT} ->
+                {base64:encode(crypto:md5(PD)), CT, PD};
+            PD ->
+                %% On a put/post even with an empty body we need to
+                %% default to some content-type
+                case Method of
+                    _ when put == Method; post == Method ->
+                        {"", "text/xml", PD};
+                    _ ->
+                        {"", "", PD}
+                end
         end,
     AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when V =/= undefined -> true; (_) -> false end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
