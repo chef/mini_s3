@@ -3,5 +3,3 @@
     access_key_id::string(),
     secret_access_key::string()
 }).
--type(config() :: #config{}).
-

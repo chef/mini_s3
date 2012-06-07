@@ -22,10 +22,13 @@
          put_object/5, put_object/6,
          set_object_acl/3, set_object_acl/4]).
 
+-export_type([config/0]).
+
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
-
 -include_lib("eunit/include/eunit.hrl").
+
+-opaque config() :: record(config).
 
 -spec new(string(), string()) -> config().
 
