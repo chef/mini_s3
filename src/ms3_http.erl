@@ -1,4 +1,7 @@
--module(erlcloud_http).
+%% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92 -*-
+%% ex: ts=4 sw=4 et
+-module(ms3_http).
+
 -export([make_query_string/1, url_encode/1, url_encode_loose/1]).
 
 make_query_string(Params) ->

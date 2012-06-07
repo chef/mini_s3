@@ -1,4 +1,6 @@
--module(erlcloud_xml).
+%% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92 -*-
+%% ex: ts=4 sw=4 et
+-module(ms3_xml).
 -export([decode/2, get_text/2]).
 
 -include_lib("xmerl/include/xmerl.hrl").
