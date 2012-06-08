@@ -79,7 +79,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     #config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
-     s3_host=Host}.
+     s3_url=Host}.
 
 
 
@@ -344,6 +344,22 @@ expiration_time(TimeToLive) ->
 
     (Now - Epoch) + TimeToLive.
 
+-spec if_not_empty(string(), iolist()) -> iolist().
+if_not_empty("", _V) ->
+    "";
+if_not_empty(_, Value) ->
+    Value.
+
+-spec format_s3_uri(config(), string()) -> string().
+format_s3_uri(Config, Host) ->
+    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
+        http_uri:parse(Config#config.s3_url),
+    lists:flatten([erlang:atom_to_list(Protocol), "://",
+                   if_not_empty(Host, [Host, $.]),
+                   if_not_empty(UserInfo, [UserInfo, "@"]),
+                   Domain, ":", erlang:integer_to_list(Port)]).
+
+
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
 %% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
@@ -361,8 +377,8 @@ expiration_time(TimeToLive) ->
 -spec s3_url(atom(), string(), string(), integer(),
              proplists:proplist(), config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
-       #config{s3_host=S3Host, access_key_id=AccessKey,
-               secret_access_key=SecretKey})
+       Config = #config{access_key_id=AccessKey,
+                        secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key) ->
 
     Headers = canonicalize_headers(RawHeaders),
@@ -381,6 +397,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
     %% the URL in the docstring for details
     CanonicalizedAMZHeaders = "",
 
+
     StringToSign = lists:flatten([HttpMethod, $\n,
                                   ContentMD5, $\n,
                                   ContentType, $\n,
@@ -392,7 +409,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
     Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
 
     RequestURI = iolist_to_binary([
-                                   "https://", S3Host, CanonicalizedResource,
+                                   format_s3_uri(Config, ""), CanonicalizedResource,
                                    $?, "AWSAccessKeyId=", AccessKey,
                                    $&, "Expires=", Expires,
                                    $&, "Signature=", ms3_http:url_encode_loose(Signature)
@@ -694,22 +711,6 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
-format_s3_uri(Config, Host, EscapedPath, Subresource, Params) ->
-    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(Config#config.s3_host),
-    lists:flatten([
-                   erlang:atom_to_list(Protocol), "://",
-                   if_not_empty(Host, [Host, $.]),
-                   if_not_empty(UserInfo, [UserInfo, "@"]),
-                   Domain, ":", erlang:integer_to_list(Port),
-                   EscapedPath,
-                   if_not_empty(Subresource, [$?, Subresource]),
-                   if
-                       Params =:= [] -> "";
-                       Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
-                       true -> [$&, ms3_http:make_query_string(Params)]
-                   end]).
-
 s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
@@ -739,7 +740,15 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestURI = format_s3_uri(Config, Host, EscapedPath, Subresource, Params),
+    RequestURI = lists:flatten([
+                                format_s3_uri(Config, Host)
+                                EscapedPath,
+                                if_not_empty(Subresource, [$?, Subresource]),
+                                if
+                                    Params =:= [] -> "";
+                                    Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
+                                    true -> [$&, ms3_http:make_query_string(Params)]
+                                end]),
     Response = case Method of
                    get ->
                        httpc:request(Method, {RequestURI, RequestHeaders},
