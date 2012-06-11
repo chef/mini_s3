@@ -322,7 +322,15 @@ decode_permission("READ_ACP")     -> read_acp.
 -spec canonicalize_headers([{Header::string(), Value::string()}]) ->
                                   [{LowerCaseHeader::string(), Value::string()}].
 canonicalize_headers(Headers) ->
-    [{string:to_lower(H), V} || {H, V} <- Headers ].
+    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
+
+-spec to_string(atom() | binary() | string()) -> string().
+to_string(A) when is_atom(A) ->
+    erlang:atom_to_list(A);
+to_string(B) when is_binary(B) ->
+    erlang:binary_to_list(B);
+to_string(S) when is_list(S) ->
+    S.
 
 %% @doc Retrieves a value from a set of canonicalized headers.  The
 %% given header should already be canonicalized (i.e., lower-cased).
