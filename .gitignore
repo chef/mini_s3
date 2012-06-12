@@ -4,3 +4,5 @@ _build
 *.plt
 ebin/*.beam
 ebin/*.app
+.eunit
+
