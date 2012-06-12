@@ -22,7 +22,7 @@ $(PLT_DIR):
 $(PLT): $(PLT_DIR)
 	dialyzer --build_plt --output_plt $(PLT) \
 		$(ERLPATH) \
-		--apps erts kernel stdlib sasl eunit pulblic_key \
+		--apps erts kernel stdlib sasl eunit public_key \
 		crypto ssl xmerl inets compiler asn1 mnesia tools
 
 clean_plt:

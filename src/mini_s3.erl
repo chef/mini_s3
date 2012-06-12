@@ -39,6 +39,9 @@
          set_object_acl/3,
          set_object_acl/4]).
 
+-export([make_authorization/10,
+        make_signed_url_authorization/5]).
+
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -191,7 +194,7 @@ delete_object_version(BucketName, Key, Version, Config)
        is_list(Key),
        is_list(Version)->
     {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key],
-                                  ["versionId=", Version], [], <<>>, []),
+                                  "versionId=" ++ Version, [], <<>>, []),
     Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
     Id = proplists:get_value("x-amz-version-id", Headers, "null"),
     [{delete_marker, list_to_existing_atom(Marker)},
@@ -322,7 +325,15 @@ decode_permission("READ_ACP")     -> read_acp.
 -spec canonicalize_headers([{Header::string(), Value::string()}]) ->
                                   [{LowerCaseHeader::string(), Value::string()}].
 canonicalize_headers(Headers) ->
-    [{string:to_lower(H), V} || {H, V} <- Headers ].
+    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
+
+-spec to_string(atom() | binary() | string()) -> string().
+to_string(A) when is_atom(A) ->
+    erlang:atom_to_list(A);
+to_string(B) when is_binary(B) ->
+    erlang:binary_to_list(B);
+to_string(S) when is_list(S) ->
+    S.
 
 %% @doc Retrieves a value from a set of canonicalized headers.  The
 %% given header should already be canonicalized (i.e., lower-cased).
@@ -381,14 +392,28 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key) ->
 
-    Headers = canonicalize_headers(RawHeaders),
-
-    HttpMethod = string:to_upper(atom_to_list(Method)),
-
     Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 
     Path = lists:flatten([$/, BucketName, $/ , Key]),
     CanonicalizedResource = ms3_http:url_encode_loose(Path),
+
+    {_StringToSign, Signature} = make_signed_url_authorization(SecretKey, Method,
+                                                               CanonicalizedResource,
+                                                               Expires, RawHeaders),
+
+    RequestURI = iolist_to_binary([
+                                   format_s3_uri(Config, ""), CanonicalizedResource,
+                                   $?, "AWSAccessKeyId=", AccessKey,
+                                   $&, "Expires=", Expires,
+                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
+                                  ]),
+    RequestURI.
+
+make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
+                              Expires, RawHeaders) ->
+    Headers = canonicalize_headers(RawHeaders),
+
+    HttpMethod = string:to_upper(atom_to_list(Method)),
 
     ContentType = retrieve_header_value("content-type", Headers),
     ContentMD5 = retrieve_header_value("content-md5", Headers),
@@ -407,14 +432,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
                                  ]),
 
     Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    {StringToSign, Signature}.
 
-    RequestURI = iolist_to_binary([
-                                   format_s3_uri(Config, ""), CanonicalizedResource,
-                                   $?, "AWSAccessKeyId=", AccessKey,
-                                   $&, "Expires=", Expires,
-                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
-                                  ]),
-    RequestURI.
 
 -spec get_object(string(), string(), proplists:proplist()) ->
                         proplists:proplist().
@@ -706,12 +725,9 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
             XML
     end.
 
-if_not_empty("", _V) ->
-    "";
-if_not_empty(_, Value) ->
-    Value.
-
-s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+s3_request(Config = #config{access_key_id=AccessKey,
+                            secret_access_key=SecretKey},
+           Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
@@ -732,16 +748,18 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
                               end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = ms3_http:url_encode_loose(Path),
-    Authorization = make_authorization(Config, Method, ContentMD5, ContentType,
-                                       Date, AmzHeaders, Host, EscapedPath, Subresource),
+    {_StringToSign, Authorization} =
+        make_authorization(AccessKey, SecretKey, Method,
+                           ContentMD5, ContentType,
+                           Date, AmzHeaders, Host,
+                           EscapedPath, Subresource),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
     RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
         case ContentMD5 of
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestURI = lists:flatten([
-                                format_s3_uri(Config, Host)
+    RequestURI = lists:flatten([format_s3_uri(Config, Host),
                                 EscapedPath,
                                 if_not_empty(Subresource, [$?, Subresource]),
                                 if
@@ -773,7 +791,7 @@ s3_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) -
             erlang:error({aws_error, {socket_error, Error}})
     end.
 
-make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
+make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
     CanonizedAmzHeaders =
         [[Name, $:, Value, $\n] || {Name, Value} <- lists:sort(AmzHeaders)],
@@ -785,8 +803,8 @@ make_authorization(Config, Method, ContentMD5, ContentType, Date, AmzHeaders,
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:sha_mac(Config#config.secret_access_key, StringToSign)),
-    ["AWS ", Config#config.access_key_id, $:, Signature].
+    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
     case application:get_env(mini_s3, s3_defaults) of
