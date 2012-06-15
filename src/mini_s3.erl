@@ -5,6 +5,7 @@
 
 -export([new/2,
          new/3,
+         new/4,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
@@ -39,17 +40,22 @@
          set_object_acl/3,
          set_object_acl/4]).
 
--export([make_authorization/10,
-        make_signed_url_authorization/5]).
+-export([manual_start/0,
+         make_authorization/10,
+         make_signed_url_authorization/5]).
 
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
--export_type([config/0, bucket_attribute_name/0,
-              bucket_acl/0, location_constraint/0]).
+-export_type([config/0,
+              bucket_attribute_name/0,
+              bucket_acl/0,
+              location_constraint/0]).
 
 -opaque config() :: record(config).
+
+-type bucket_access_type() :: virtual_domain | path.
 
 -type bucket_attribute_name() :: acl
                                | location
@@ -69,6 +75,16 @@
                              | eu.
 
 
+%%
+%% This is a helper function that exists to make development just a
+%% wee bit easier
+-spec manual_start() -> ok.
+manual_start() ->
+    application:start(crypto),
+    application:start(public_key),
+    application:start(ssl),
+    application:start(inets).
+
 -spec new(string(), string()) -> config().
 
 new(AccessKeyID, SecretAccessKey) ->
@@ -83,6 +99,15 @@ new(AccessKeyID, SecretAccessKey, Host) ->
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_url=Host}.
+
+-spec new(string(), string(), string(), bucket_access_type()) -> config().
+
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
+    #config{
+     access_key_id=AccessKeyID,
+     secret_access_key=SecretAccessKey,
+     s3_url=Host,
+     bucket_access_type=BucketAccessType}.
 
 
 
@@ -362,13 +387,22 @@ if_not_empty(_, Value) ->
     Value.
 
 -spec format_s3_uri(config(), string()) -> string().
-format_s3_uri(Config, Host) ->
+format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(Config#config.s3_url),
-    lists:flatten([erlang:atom_to_list(Protocol), "://",
-                   if_not_empty(Host, [Host, $.]),
-                   if_not_empty(UserInfo, [UserInfo, "@"]),
-                   Domain, ":", erlang:integer_to_list(Port)]).
+        http_uri:parse(S3Url),
+    case BAccessType of
+        virtual_hosted ->
+            lists:flatten([erlang:atom_to_list(Protocol), "://",
+                           if_not_empty(Host, [Host, $.]),
+                           if_not_empty(UserInfo, [UserInfo, "@"]),
+                           Domain, ":", erlang:integer_to_list(Port)]);
+        path ->
+            lists:flatten([erlang:atom_to_list(Protocol), "://",
+                           if_not_empty(UserInfo, [UserInfo, "@"]),
+                           Domain, ":", erlang:integer_to_list(Port),
+                           if_not_empty(Host, [$/, Host])])
+    end.
+
 
 
 %% @doc Generate an S3 URL using Query String Request Authentication
