@@ -27,6 +27,7 @@
          delete_object_version/3,
          delete_object_version/4,
          get_object/3,
+         get_object/4,
          get_object_acl/2,
          get_object_acl/3,
          get_object_acl/4,
