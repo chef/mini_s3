@@ -789,11 +789,17 @@ s3_request(Config = #config{access_key_id=AccessKey,
                            Date, AmzHeaders, Host,
                            EscapedPath, Subresource),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
+    RequestHeaders0 = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
         case ContentMD5 of
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
+    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
+                          true ->
+                              RequestHeaders0;
+                          false ->
+                              [{"Content-Type", ContentType} | RequestHeaders0]
+                      end,
     RequestURI = lists:flatten([format_s3_uri(Config, Host),
                                 EscapedPath,
                                 if_not_empty(Subresource, [$?, Subresource]),
@@ -804,24 +810,22 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                 end]),
     Response = case Method of
                    get ->
-                       httpc:request(Method, {RequestURI, RequestHeaders},
-                                     [], []);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
                    delete ->
-                       httpc:request(Method, {RequestURI, RequestHeaders},
-                                     [], []);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
                    head ->
-                       httpc:request(Method, {RequestURI, RequestHeaders},
-                                     [], []);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
                    _ ->
-                       httpc:request(Method, {RequestURI, RequestHeaders,
-                                              ContentType, Body}, [], [])
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
                end,
     case Response of
-        {ok, {{_HTTPVer, OKStatus, _StatusLine}, ResponseHeaders, ResponseBody}}
-          when OKStatus >= 200, OKStatus =< 299 ->
-            {ResponseHeaders, ResponseBody};
-        {ok, {{_HTTPVer, Status, _StatusLine}, _ResponseHeaders, _ResponseBody}} ->
-            erlang:error({aws_error, {http_error, Status, _StatusLine, _ResponseBody}});
+        {ok, Status, ResponseHeaders, ResponseBody} ->
+            case erlang:list_to_integer(Status) of
+                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
+                    {ResponseHeaders, ResponseBody};
+                _ ->
+                    erlang:error({aws_error, {http_error, Status, ResponseBody}})
+                end;
         {error, Error} ->
             erlang:error({aws_error, {socket_error, Error}})
     end.

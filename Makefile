@@ -10,11 +10,14 @@ EBINDIR=$(APPDIR)/ebin
 PLT_DIR=$(CURDIR)/.plt
 PLT=$(PLT_DIR)/dialyzer_plt
 
-ERLPATH=-pa $(EBINDIR)
+ERLPATH=-pa $(EBINDIR) -pa $(APPDIR)/deps/*/ebin
 
 .PHONY=all clean_plt dialyzer typer build clean distclean
 
 all: build
+
+deps :
+	$(REBAR) get-deps
 
 $(PLT_DIR):
 	mkdir -p $(PLT_DIR)
@@ -23,7 +26,7 @@ $(PLT): $(PLT_DIR)
 	dialyzer --build_plt --output_plt $(PLT) \
 		$(ERLPATH) \
 		--apps erts kernel stdlib sasl eunit public_key \
-		crypto ssl xmerl inets compiler asn1 mnesia tools
+		crypto ssl xmerl ibrowse compiler asn1 mnesia tools
 
 clean_plt:
 	rm -rf $(PLT_DIR)
