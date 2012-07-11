@@ -1,8 +1,8 @@
 *.beam
+deps
 *.tmproj
 _build
 *.plt
 ebin/*.beam
 ebin/*.app
 .eunit
-
