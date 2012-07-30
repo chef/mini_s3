@@ -823,8 +823,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
             case erlang:list_to_integer(Status) of
                 OKStatus when OKStatus >= 200, OKStatus =< 299 ->
                     {ResponseHeaders, ResponseBody};
-                _ ->
-                    erlang:error({aws_error, {http_error, Status, ResponseBody}})
+                BadStatus ->
+                    erlang:error({aws_error, {http_error, BadStatus, ResponseBody}})
                 end;
         {error, Error} ->
             erlang:error({aws_error, {socket_error, Error}})
