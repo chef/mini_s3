@@ -408,7 +408,7 @@ if_not_empty(_, Value) ->
 -spec format_s3_uri(config(), string()) -> string().
 format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url),
+        ms3_http:parse_uri(S3Url),
     case BAccessType of
         virtual_hosted ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",
