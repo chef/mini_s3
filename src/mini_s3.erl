@@ -841,7 +841,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
                end,
     case Response of
-        {ok, Status, ResponseHeaders, ResponseBody} ->
+        {ok, Status, ResponseHeaders0, ResponseBody} ->
+            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
             case erlang:list_to_integer(Status) of
                 OKStatus when OKStatus >= 200, OKStatus =< 299 ->
                     {ResponseHeaders, ResponseBody};
