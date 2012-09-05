@@ -8,42 +8,39 @@ SRCDIR=$(APPDIR)/src
 EBINDIR=$(APPDIR)/ebin
 
 PLT_DIR=$(CURDIR)/.plt
-PLT=$(PLT_DIR)/dialyzer_plt
+DEPS_PLT=$(PLT_DIR)/mini_s3
+DIALYZER_DEPS=ibrowse
 
 ERLPATH=-pa $(EBINDIR) -pa $(APPDIR)/deps/*/ebin
 
-.PHONY=all clean_plt dialyzer typer build clean distclean
+.PHONY=all clean_plt dialyzer typer compile clean distclean test
 
-all: build
+all: compile test dialyzer
 
-deps :
+deps:
 	$(REBAR) get-deps
 
 $(PLT_DIR):
 	mkdir -p $(PLT_DIR)
 
-$(PLT): $(PLT_DIR)
-	dialyzer --build_plt --output_plt $(PLT) \
-		$(ERLPATH) \
-		--apps erts kernel stdlib sasl eunit public_key \
-		crypto ssl xmerl ibrowse compiler asn1 mnesia tools
+$(DEPS_PLT): $(PLT_DIR)
+	dialyzer --build_plt --output_plt $(DEPS_PLT) \
+		$(ERLPATH) --apps $(DIALYZER_DEPS)
 
 clean_plt:
 	rm -rf $(PLT_DIR)
 
-dialyzer: $(PLT)
-	@rebar compile
-	dialyzer --no_check_plt --src --plt $(PLT) \
-	$(ERLPATH) \
-	-c $(SRCDIR)
+dialyzer: $(DEPS_PLT)
+	@dialyzer -Wrace_conditions -Wunderspecs \
+        --plts ~/.dialyzer_plt $(DEPS_PLT) -r $(EBINDIR)
 
-typer: build $(PLT)
+typer: compile $(PLT)
 	typer --plt $(PLT) -r $(SRCDIR)
 
-build:
+compile:
 	$(REBAR) compile
 
-eunit : build
+test:
 	$(REBAR) skip_deps=true eunit
 
 clean:
