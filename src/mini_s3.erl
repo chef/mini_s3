@@ -813,12 +813,6 @@ s3_request(Config = #config{access_key_id=AccessKey,
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
-                          true ->
-                              RequestHeaders0;
-                          false ->
-                              [{"Content-Type", ContentType} | RequestHeaders0]
-                      end,
     RequestURI = lists:flatten([format_s3_uri(Config, Host),
                                 EscapedPath,
                                 if_not_empty(Subresource, [$?, Subresource]),
@@ -829,18 +823,18 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                 end]),
     Response = case Method of
                    get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method);
                    delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method);
                    head ->
                        %% ibrowse is unable to handle HEAD request responses that are sent
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, [],
                                         [{http_vsn, {1, 0}}]);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, Body)
                end,
     case Response of
         {ok, Status, ResponseHeaders, ResponseBody} ->
