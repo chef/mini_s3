@@ -834,7 +834,17 @@ s3_request(Config = #config{access_key_id=AccessKey,
                        ibrowse:send_req(RequestURI, RequestHeaders0, Method, [],
                                         [{http_vsn, {1, 0}}]);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, Body)
+                       %% request timeout calculation based on content_length
+                       Timeout =
+                           case proplists:get_value("content-length", RequestHeaders0) of
+                               undefined -> 30000;
+                               Value     -> 
+                                   case Value div 5 of
+                                       To when To < 30000 -> 30000;
+                                       To                 -> To
+                                   end
+                           end,
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, Body, [], Timeout)
                end,
     case Response of
         {ok, Status, ResponseHeaders, ResponseBody} ->
