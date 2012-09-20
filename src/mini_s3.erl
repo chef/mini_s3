@@ -1,6 +1,24 @@
 %% -*- erlang-indent-level: 4;indent-tabs-mode: nil; fill-column: 92 -*-
 %% ex: ts=4 sw=4 et
 %% Amazon Simple Storage Service (S3)
+%% Copyright 2010 Brian Buchanan. All Rights Reserved.
+%% Copyright 2012 Opscode, Inc. All Rights Reserved.
+%%
+%% This file is provided to you under the Apache License,
+%% Version 2.0 (the "License"); you may not use this file
+%% except in compliance with the License.  You may obtain
+%% a copy of the License at
+%%
+%%   http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing,
+%% software distributed under the License is distributed on an
+%% "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+%% KIND, either express or implied.  See the License for the
+%% specific language governing permissions and limitations
+%% under the License.
+%%
+
 -module(mini_s3).
 
 -export([new/2,
@@ -63,6 +81,11 @@
                                | logging
                                | request_payment
                                | versioning.
+
+-type settable_bucket_attribute_name() :: acl
+                                        | logging
+                                        | request_payment
+                                        | versioning.
 
 -type bucket_acl() :: private
                     | public_read
@@ -348,7 +371,7 @@ decode_permission("READ_ACP")     -> read_acp.
 
 %% @doc Canonicalizes a proplist of {"Header", "Value"} pairs by
 %% lower-casing all the Headers.
--spec canonicalize_headers([{Header::string(), Value::string()}]) ->
+-spec canonicalize_headers([{string() | binary() | atom(), Value::string()}]) ->
                                   [{LowerCaseHeader::string(), Value::string()}].
 canonicalize_headers(Headers) ->
     [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
@@ -620,12 +643,21 @@ extract_bucket(Node) ->
                     {creation_date, "CreationDate", time}],
                    Node).
 
--spec put_object(string(), string(), iolist(), proplists:proplist(), [{string(), string()}] | config()) -> proplists:proplist().
+-spec put_object(string(),
+                 string(),
+                 iolist(),
+                 proplists:proplist(),
+                 [{string(), string()}]) -> [{'version_id', _}, ...].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     put_object(BucketName, Key, Value, Options, HTTPHeaders, default_config()).
 
--spec put_object(string(), string(), iolist(), proplists:proplist(), [{string(), string()}], config()) -> proplists:proplist().
+-spec put_object(string(),
+                 string(),
+                 iolist(),
+                 proplists:proplist(),
+                 [{string(), string()}],
+                 config()) -> [{'version_id', _}, ...].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
   when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
@@ -657,12 +689,15 @@ set_object_acl(BucketName, Key, ACL, Config)
     XMLText = list_to_binary(xmerl:export_simple([XML], xmerl_xml)),
     s3_simple_request(Config, put, BucketName, [$/|Key], "acl", [], XMLText, []).
 
--spec set_bucket_attribute(string(), atom(), term()) -> ok.
+-spec set_bucket_attribute(string(),
+                           settable_bucket_attribute_name(),
+                           'bucket_owner' | 'requester' | [any()]) -> ok.
 
 set_bucket_attribute(BucketName, AttributeName, Value) ->
     set_bucket_attribute(BucketName, AttributeName, Value, default_config()).
 
--spec set_bucket_attribute(string(), atom(), term(), config()) -> ok.
+-spec set_bucket_attribute(string(), settable_bucket_attribute_name(),
+                           'bucket_owner' | 'requester' | [any()], config()) -> ok.
 
 set_bucket_attribute(BucketName, AttributeName, Value, Config)
   when is_list(BucketName) ->
@@ -824,12 +859,14 @@ s3_request(Config = #config{access_key_id=AccessKey,
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
                end,
     case Response of
-        {ok, Status, ResponseHeaders, ResponseBody} ->
+        {ok, Status, ResponseHeaders0, ResponseBody} ->
+            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
             case erlang:list_to_integer(Status) of
                 OKStatus when OKStatus >= 200, OKStatus =< 299 ->
                     {ResponseHeaders, ResponseBody};
                 BadStatus ->
-                    erlang:error({aws_error, {http_error, BadStatus, ResponseBody}})
+                    erlang:error({aws_error, {http_error, BadStatus,
+                                              {ResponseHeaders, ResponseBody}}})
                 end;
         {error, Error} ->
             erlang:error({aws_error, {socket_error, Error}})
