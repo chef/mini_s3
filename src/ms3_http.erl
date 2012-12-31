@@ -20,7 +20,15 @@
 
 -module(ms3_http).
 
--export([make_query_string/1, url_encode/1, url_encode_loose/1]).
+-export([make_query_string/1, url_encode/1, url_encode_loose/1, parse_uri/1]).
+
+%% wrapper for api compatibility with erlang < R15
+parse_uri(Url) ->
+    case http_uri:parse(Url) of
+        {ok, _}    = ParsedUrl -> ParsedUrl;
+        {error, _} = Error     -> Error;
+        ParsedUrl              -> {ok, ParsedUrl}
+    end.
 
 make_query_string(Params) ->
     string:join([[Key, "=", url_encode(value_to_string(Value))]

@@ -413,7 +413,7 @@ if_not_empty(_, Value) ->
 -spec format_s3_uri(config(), string()) -> string().
 format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url),
+        ms3_http:parse_uri(S3Url),
     case BAccessType of
         virtual_hosted ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",
@@ -660,15 +660,14 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
                  config()) -> [{'version_id', _}, ...].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
-  when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
-       is_list(Options) ->
+  when is_list(BucketName), is_list(Key), is_list(Options) ->
     RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
         ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
     ContentType = proplists:get_value("content-type", HTTPHeaders, "application/octet_stream"),
-    POSTData = {iolist_to_binary(Value), ContentType},
+    %% POSTData = {iolist_to_binary(Value), ContentType},
     {Headers, _Body} = s3_request(Config, put, BucketName, [$/|Key], "", [],
-                                  POSTData, RequestHeaders),
+                                  {Value, ContentType}, RequestHeaders),
     [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 -spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
@@ -800,6 +799,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
+            {{StreamFun, Arg}, CT} when is_function(StreamFun) ->
+                {"", CT, {StreamFun, Arg}};
             {PD, CT} ->
                 {base64:encode(crypto:md5(PD)), CT, PD};
             PD ->
@@ -829,12 +830,6 @@ s3_request(Config = #config{access_key_id=AccessKey,
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
         end,
-    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
-                          true ->
-                              RequestHeaders0;
-                          false ->
-                              [{"Content-Type", ContentType} | RequestHeaders0]
-                      end,
     RequestURI = lists:flatten([format_s3_uri(Config, Host),
                                 EscapedPath,
                                 if_not_empty(Subresource, [$?, Subresource]),
@@ -845,18 +840,28 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                 end]),
     Response = case Method of
                    get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method);
                    delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method);
                    head ->
                        %% ibrowse is unable to handle HEAD request responses that are sent
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, [],
                                         [{http_vsn, {1, 0}}]);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
+                       %% request timeout calculation based on content_length
+                       Timeout =
+                           case proplists:get_value("content-length", RequestHeaders0) of
+                               undefined -> 30000;
+                               Value     -> 
+                                   case Value div 5 of
+                                       To when To < 30000 -> 30000;
+                                       To                 -> To
+                                   end
+                           end,
+                       ibrowse:send_req(RequestURI, RequestHeaders0, Method, Body, [], Timeout)
                end,
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
