@@ -1,49 +1,28 @@
-REBAR=$(shell which rebar)
-ifeq ($(REBAR),)
-	$(error "Rebar not available on this system")
+# This Makefile written by concrete
+#
+# {concrete_makefile_version, 1}
+#
+# Use this to override concrete's default dialyzer options of
+# -Wunderspecs
+# DIALYZER_OPTS = ...
+
+# List dependencies that you do NOT want to be included in the
+# dialyzer PLT for the project here.  Typically, you would list a
+# dependency here if it isn't spec'd well and doesn't play nice with
+# dialyzer or otherwise mucks things up.
+#
+# DIALYZER_SKIP_DEPS = bad_dep_1 \
+#                      bad_dep_2
+
+# If you want to add dependencies to the default "all" target provided
+# by concrete, add them here (along with make rules to build them if needed)
+# ALL_HOOK = ...
+
+concrete_rules_file = $(wildcard concrete.mk)
+ifeq ($(concrete_rules_file),concrete.mk)
+    include concrete.mk
+else
+    all:
+	@echo "ERROR: missing concrete.mk"
+	@echo "  run: concrete update"
 endif
-
-APPDIR=$(CURDIR)
-SRCDIR=$(APPDIR)/src
-EBINDIR=$(APPDIR)/ebin
-
-PLT_DIR=$(CURDIR)/.plt
-DEPS_PLT=$(PLT_DIR)/mini_s3
-DIALYZER_DEPS=ibrowse
-
-ERLPATH=-pa $(EBINDIR) -pa $(APPDIR)/deps/*/ebin
-
-.PHONY=all clean_plt dialyzer typer compile clean distclean test
-
-all: compile test dialyzer
-
-deps:
-	$(REBAR) get-deps
-
-$(PLT_DIR):
-	mkdir -p $(PLT_DIR)
-
-$(DEPS_PLT): $(PLT_DIR)
-	dialyzer --build_plt --output_plt $(DEPS_PLT) \
-		$(ERLPATH) --apps $(DIALYZER_DEPS)
-
-clean_plt:
-	rm -rf $(PLT_DIR)
-
-dialyzer: $(DEPS_PLT)
-	@dialyzer -Wrace_conditions -Wunderspecs \
-        --plts ~/.dialyzer_plt $(DEPS_PLT) -r $(EBINDIR)
-
-typer: compile $(PLT)
-	typer --plt $(PLT) -r $(SRCDIR)
-
-compile:
-	$(REBAR) compile
-
-test:
-	$(REBAR) skip_deps=true eunit
-
-clean:
-	$(REBAR) clean
-
-distclean: clean clean_plt

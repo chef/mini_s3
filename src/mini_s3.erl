@@ -63,6 +63,10 @@
          make_authorization/10,
          make_signed_url_authorization/5]).
 
+-ifdef(TEST).
+-compile([export_all]).
+-endif.
+
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("eunit/include/eunit.hrl").
@@ -413,7 +417,7 @@ if_not_empty(_, Value) ->
 -spec format_s3_uri(config(), string()) -> string().
 format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url),
+        http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
         virtual_hosted ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",

@@ -6,3 +6,4 @@ _build
 ebin/*.beam
 ebin/*.app
 .eunit
+/.concrete/DEV_MODE
