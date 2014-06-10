@@ -666,10 +666,12 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
   when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
        is_list(Options) ->
-    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|HTTPHeaders]
+    ContentType = proplists:get_value("content-type", HTTPHeaders, "application/octet_stream"),
+    FilteredHTTPHeaders = proplists:delete("content-type", HTTPHeaders),
+
+    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|FilteredHTTPHeaders]
         ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
-    ContentType = proplists:get_value("content-type", HTTPHeaders, "application/octet_stream"),
     POSTData = {iolist_to_binary(Value), ContentType},
     {Headers, _Body} = s3_request(Config, put, BucketName, [$/|Key], "", [],
                                   POSTData, RequestHeaders),
