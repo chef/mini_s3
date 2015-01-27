@@ -61,7 +61,8 @@
 
 -export([manual_start/0,
          make_authorization/10,
-         make_signed_url_authorization/5]).
+         make_signed_url_authorization/5,
+         universaltime/0]).
 
 -ifdef(TEST).
 -compile([export_all]).
@@ -412,14 +413,14 @@ expiration_time({TimeToLive, Interval}) ->
     NowSecs = calendar:datetime_to_gregorian_seconds(Now),
     MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
     %% How many seconds are we into today?
-    TodayOffest = NowSecs - MidnightSecs,
-    Buffer = case (TodayOffest + Interval) >= ?DAY of
+    TodayOffset = NowSecs - MidnightSecs,
+    Buffer = case (TodayOffset + Interval) >= ?DAY of
         %% true if we're in the day's last interval, don't let it spill into tomorrow
         true ->
-            ?DAY - TodayOffest;
+            ?DAY - TodayOffset;
         %% false means this interval is bounded by today
         _ ->
-            Interval - (TodayOffest rem Interval)
+            Interval - (TodayOffset rem Interval)
     end,
     NowSecs + Buffer - ?EPOCH + TimeToLive;
 expiration_time(TimeToLive) ->
@@ -516,7 +517,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedResource
                                  ]),
 
-    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
 
@@ -830,7 +831,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
-                {base64:encode(crypto:md5(PD)), CT, PD};
+                {base64:encode(crypto:hash(md5,PD)), CT, PD};
             PD ->
                 %% On a put/post even with an empty body we need to
                 %% default to some content-type
@@ -913,7 +914,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
