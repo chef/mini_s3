@@ -65,11 +65,11 @@
 
 -ifdef(TEST).
 -compile([export_all]).
+-include_lib("eunit/include/eunit.hrl").
 -endif.
 
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -export_type([config/0,
               bucket_attribute_name/0,
