@@ -61,15 +61,16 @@
 
 -export([manual_start/0,
          make_authorization/10,
-         make_signed_url_authorization/5]).
+         make_signed_url_authorization/5,
+         universaltime/0]).
 
 -ifdef(TEST).
 -compile([export_all]).
+-include_lib("eunit/include/eunit.hrl").
 -endif.
 
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -export_type([config/0,
               bucket_attribute_name/0,
@@ -397,16 +398,39 @@ to_string(S) when is_list(S) ->
 retrieve_header_value(Header, AllHeaders) ->
     proplists:get_value(Header, AllHeaders, "").
 
-%% @doc Number of seconds since the Epoch that a request can be valid
-%% for, specified by TimeToLive, which is the number of seconds from
-%% "right now" that a request should be valid.
--spec expiration_time(TimeToLive::non_neg_integer()) ->
-                             Expires::non_neg_integer().
-expiration_time(TimeToLive) ->
-    Epoch = calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}),
-    Now = calendar:datetime_to_gregorian_seconds(erlang:universaltime()),
+%% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+-define(EPOCH, 62167219200).
+-define(DAY, 86400).
 
-    (Now - Epoch) + TimeToLive.
+%% @doc Number of seconds since the Epoch that a request can be valid for, specified by
+%% TimeToLive, which is the number of seconds from "right now" that a request should be
+%% valid. If the argument provided is a tuple, we use the interval logic that will only
+%% result in Interval / 86400 unique expiration times per day
+-spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
+                             Expires::non_neg_integer().
+expiration_time({TimeToLive, Interval}) ->
+    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
+    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
+    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
+    %% How many seconds are we into today?
+    TodayOffset = NowSecs - MidnightSecs,
+    Buffer = case (TodayOffset + Interval) >= ?DAY of
+        %% true if we're in the day's last interval, don't let it spill into tomorrow
+        true ->
+            ?DAY - TodayOffset;
+        %% false means this interval is bounded by today
+        _ ->
+            Interval - (TodayOffset rem Interval)
+    end,
+    NowSecs + Buffer - ?EPOCH + TimeToLive;
+expiration_time(TimeToLive) ->
+    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
+    (Now - ?EPOCH) + TimeToLive.
+
+%% Abstraction of universaltime, so it can be mocked via meck
+-spec universaltime() -> calendar:datetime().
+universaltime() ->
+    erlang:universaltime().
 
 -spec if_not_empty(string(), iolist()) -> iolist().
 if_not_empty("", _V) ->
@@ -447,7 +471,7 @@ format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
 %%
 %% Consult the official documentation (linked above) if you wish to
 %% augment this function's capabilities.
--spec s3_url(atom(), string(), string(), integer(),
+-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #config{access_key_id=AccessKey,
@@ -459,7 +483,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
     Path = lists:flatten([$/, BucketName, $/ , Key]),
     CanonicalizedResource = ms3_http:url_encode_loose(Path),
 
-    {_StringToSign, Signature} = make_signed_url_authorization(SecretKey, Method,
+    {_StringToSign, Signature} = mini_s3:make_signed_url_authorization(SecretKey, Method,
                                                                CanonicalizedResource,
                                                                Expires, RawHeaders),
 
@@ -493,7 +517,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedResource
                                  ]),
 
-    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
 
@@ -807,7 +831,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
-                {base64:encode(crypto:md5(PD)), CT, PD};
+                {base64:encode(crypto:hash(md5,PD)), CT, PD};
             PD ->
                 %% On a put/post even with an empty body we need to
                 %% default to some content-type
@@ -890,7 +914,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:sha_mac(SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->

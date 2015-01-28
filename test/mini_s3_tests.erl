@@ -48,3 +48,83 @@ format_s3_uri_test_() ->
             ],
     [ ?_assertEqual(Expect, mini_s3:format_s3_uri(Config(Url, Type), "bucket"))
       || {Url, Type, Expect} <- Tests ].
+
+%% 2015-01-27 00:00:00 = 1422316800 = ?MIDNIGHT
+-define(MIDNIGHT, 1422316800).
+-define(DAY, 86400).
+-define(HOUR, 3600).
+
+expiration_time_test_() ->
+    Tests = [
+             %% {TTLSecs, IntervalSecs, MockedTimestamp, ExpectedExpiry}
+             {{3600, 900}, {{2015,1,27},{0,0,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,0,10}} , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,1,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,1,10}} , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,3,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,3,30}} , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,5,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,10,0}} , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,14,0}} , (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,14,59}}, (?MIDNIGHT + ?HOUR + 900)},
+             {{3600, 900}, {{2015,1,27},{0,15,0}} , (?MIDNIGHT + ?HOUR + 1800)},
+             {{3600, 900}, {{2015,1,27},{0,15,1}} , (?MIDNIGHT + ?HOUR + 1800)},
+             {{3600, 900}, {{2015,1,27},{0,29,59}}, (?MIDNIGHT + ?HOUR + 1800)},
+             {{3600, 900}, {{2015,1,27},{0,30,0}} , (?MIDNIGHT + ?HOUR + 2700)},
+             {{3600, 900}, {{2015,1,27},{0,44,59}}, (?MIDNIGHT + ?HOUR + 2700)},
+             {{3600, 900}, {{2015,1,27},{0,45,0}} , (?MIDNIGHT + ?HOUR + 3600)},
+             {{3600, 900}, {{2015,1,27},{0,59,59}}, (?MIDNIGHT + ?HOUR + 3600)},
+             {{3600, 900}, {{2015,1,27},{1,0,0}}  , (?MIDNIGHT + ?HOUR + 4500)},
+
+             %% There are 86400 seconds in a day. What happens if the interval is not evenly
+             %% divisible in that time? Take 7m for example. 420 secs goes into a day 205.71
+             %% times which is a remainder of 300 seconds. We should make sure that we
+             %% restart the intervals at midnight, so we don't have day to day drift
+
+             {{3600, 420}, {{2015,1,27},{23,59,0}} , (?MIDNIGHT + ?DAY + ?HOUR)},
+             {{3600, 420}, {{2015,1,28},{0,0,0}}   , (?MIDNIGHT + ?DAY + ?HOUR + 420)},
+
+             %% Let's test the old functionality too
+             {3600, {{2015,1,27},{0,0,0}} , (?MIDNIGHT + ?HOUR)},
+             {3600, {{2015,1,27},{0,0,1}} , (?MIDNIGHT + ?HOUR + 1)},
+             {3600, {{2015,1,27},{0,1,1}} , (?MIDNIGHT + ?HOUR + 61)},
+             {3600, {{2015,1,28},{0,1,1}} , (?MIDNIGHT + ?DAY + ?HOUR + 61)}
+            ],
+
+    TestFun = fun(Arg, MockedTime) ->
+                      meck:new(mini_s3, [unstick, passthrough]),
+                      meck:expect(mini_s3, universaltime, fun() -> MockedTime end),
+                      Expiry = mini_s3:expiration_time(Arg),
+                      meck:unload(mini_s3),
+                      Expiry
+              end,
+    [ ?_assertEqual(Expect, TestFun(Arg, MockedTimestamp))
+      || {Arg, MockedTimestamp, Expect} <- Tests].
+
+s3_uri_test_() ->
+    Config = #config{
+               access_key_id = "access_key_id",
+               secret_access_key = "secret_access_key"
+               },
+
+    RawHeaders = [],
+
+    TestFun = fun({Method, BucketName, Key, Lifetime, MockedTime}) ->
+                      meck:new(mini_s3, [no_link, passthrough]),
+                      meck:expect(mini_s3, universaltime, fun() -> MockedTime end),
+                      meck:expect(mini_s3, make_signed_url_authorization, fun(_,_,_,_,_) -> {"", <<"k6E/2haoGH5vGU9qDTBRs1qNGKA=">>} end),
+
+                      URL = binary_to_list(mini_s3:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config)),
+                      io:format("URL: ~p~n", [URL]),
+                      io:format("History: ~p~n", [meck:history(mini_s3)]),
+                      meck:unload(mini_s3),
+
+                      URL
+              end,
+
+    Tests = [
+             {{'GET', "BUCKET", "KEY", 3600, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET/KEY?AWSAccessKeyId=access_key_id&Expires=1422320400&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"},
+             {{'GET', "BUCKET2", "KEY2", {3600, 900}, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET2/KEY2?AWSAccessKeyId=access_key_id&Expires=1422321300&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"}
+            ],
+
+    [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
