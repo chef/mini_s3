@@ -57,7 +57,10 @@
          put_object/5,
          put_object/6,
          set_object_acl/3,
-         set_object_acl/4]).
+         set_object_acl/4,
+         create_pool/0,
+         delete_pool/0
+        ]).
 
 -export([manual_start/0,
          make_authorization/10,
@@ -875,18 +878,18 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                 end]),
     Response = case Method of
                    get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method);
                    delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method);
+                       oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method);
                    head ->
                        %% ibrowse is unable to handle HEAD request responses that are sent
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        [{http_vsn, {1, 0}}]);
+                       oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method, [],
+                                        30000, [{http_vsn, {1,0}}]);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
+                       oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method, Body)
                end,
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
@@ -929,3 +932,14 @@ default_config() ->
         false ->
             throw({error, missing_s3_defaults})
     end.
+
+create_pool() ->
+    oc_httpc:add_pool(?MODULE, pool_config()),
+    ok.
+
+delete_pool() ->
+    oc_httpc:delete_pool(?MODULE),
+    ok.
+
+pool_config() ->
+    application:get_env(mini_s3, service, []).

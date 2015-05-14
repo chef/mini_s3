@@ -30,7 +30,9 @@
                   crypto,
                   ssl,
                   xmerl,
-                  ibrowse]},
+                  ibrowse,
+                  opscoderl_httpc
+                 ]},
   {modules, []},
   {env, []}
  ]
