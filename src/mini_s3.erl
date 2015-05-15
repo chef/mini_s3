@@ -886,8 +886,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
-                       oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method, [],
-                                        30000, [{http_vsn, {1,0}}]);
+                       oc_httpc:request(mini_s3_head, RequestURI, RequestHeaders1, Method);
                    _ ->
                        oc_httpc:request(?MODULE, RequestURI, RequestHeaders1, Method, Body)
                end,
@@ -934,11 +933,16 @@ default_config() ->
     end.
 
 create_pool() ->
+    Config = pool_config(),
     oc_httpc:add_pool(?MODULE, pool_config()),
+    IBrowseOptions = proplists:get_value(ibrowse_options, Config, []),
+    NewConfig = [ {ibrowse_options, [{http_vsn, {1,0}}|IBrowseOptions]} |proplists:delete(ibrowse_options, Config)],
+    oc_httpc:add_pool(mini_s3_head, NewConfig),
     ok.
 
 delete_pool() ->
     oc_httpc:delete_pool(?MODULE),
+    oc_httpc:delete_pool(mini_s3_head),
     ok.
 
 pool_config() ->
