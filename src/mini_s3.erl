@@ -879,12 +879,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                    delete ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method);
                    head ->
-                       %% ibrowse is unable to handle HEAD request responses that are sent
-                       %% with chunked transfer-encoding (why servers do this is not
-                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
-                       %% to use HTTP 1.0 works around the problem.
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        [{http_vsn, {1, 0}}]);
+                                        [{workaround, head_response_with_body}]);
                    _ ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body)
                end,
