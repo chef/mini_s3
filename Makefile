@@ -1,42 +1,52 @@
-# This Makefile written by concrete
 #
-# {concrete_makefile_version, 3}
+# Simple Makefile for rebar3 based erlang project
 #
-# ANY CHANGES TO THIS FILE WILL BE OVERWRITTEN on `concrete update`
-# IF YOU WANT TO CHANGE ANY OF THESE LINES BELOW, COPY THEM INTO
-# custom.mk FIRST
 
-# Use this to override concrete's default dialyzer options of
-# -Wunderspecs
-# DIALYZER_OPTS = ...
-
-# List dependencies that you do NOT want to be included in the
-# dialyzer PLT for the project here.  Typically, you would list a
-# dependency here if it isn't spec'd well and doesn't play nice with
-# dialyzer or otherwise mucks things up.
 #
-# DIALYZER_SKIP_DEPS = bad_dep_1 \
-#                      bad_dep_2
-
-# If you want to add dependencies to the default "all" target provided
-# by concrete, add them here (along with make rules to build them if needed)
-# ALL_HOOK = ...
-
-## .DEFAULT_GOAL can be overridden in custom.mk if "all" is not the desired
-## default
-.DEFAULT_GOAL := all
-
-# custom.mk is totally optional
-custom_rules_file = $(wildcard custom.mk)
-ifeq ($(custom_rules_file),custom.mk)
-    include custom.mk
+# Use rebar3 from either:
+# - ./rebar3
+# - rebar3 on the PATH (found via which)
+# - Downloaded from $REBAR3_URL
+#
+REBAR3_URL=https://s3.amazonaws.com/rebar3/rebar3
+ifeq ($(wildcard rebar3),rebar3)
+  REBAR3 = $(CURDIR)/rebar3
 endif
 
-concrete_rules_file = $(wildcard concrete.mk)
-ifeq ($(concrete_rules_file),concrete.mk)
-    include concrete.mk
-else
-    all:
-	@echo "ERROR: missing concrete.mk"
-	@echo "  run: concrete update"
+# Fallback to rebar on PATH
+REBAR3 ?= $(shell which rebar3)
+
+# And finally, prep to download rebar if all else fails
+ifeq ($(REBAR3),)
+REBAR3 = rebar3
 endif
+
+all: $(REBAR3)
+	@$(REBAR3) do clean, compile, eunit, dialyzer
+
+rel: all
+	@$(REBAR3) release
+
+test:
+	@$(REBAR3) eunit ct
+
+dialyzer:
+	@$(REBAR3) dialyzer
+
+xref:
+	@$(REBAR3) xref
+
+update:
+	@$(REBAR3) update
+
+install: $(REBAR3) distclean update
+
+distclean:
+	@rm -rf _build
+
+$(REBAR3):
+	curl -Lo rebar3 $(REBAR3_URL) || wget $(REBAR3_URL)
+	chmod a+x rebar3
+
+travis: all
+	@echo "Travis'd!"
