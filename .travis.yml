@@ -1,15 +1,13 @@
 language: erlang
 otp_release:
-  - 18.3
+  - 21.0
+  - 20.3
   - 19.3
+  - 18.3
 
-  
 install: true
 script: rebar3 eunit
 
 branches:
   only:
     - master
-
-
-
