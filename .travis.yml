@@ -1,0 +1,15 @@
+language: erlang
+otp_release:
+  - 18.3
+  - 19.3
+
+  
+install: true
+script: rebar3 eunit
+
+branches:
+  only:
+    - master
+
+
+
