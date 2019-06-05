@@ -21,10 +21,12 @@
 
 -module(mini_s3).
 
--export([new/2,
+-export([new/1,
+         new/2,
          new/3,
          new/4,
          new/5,
+         set_config/3,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
@@ -54,16 +56,14 @@
          get_object_torrent/3,
          get_object_metadata/3,
          get_object_metadata/4,
-         s3_url/6,
          put_object/5,
          put_object/6,
          set_object_acl/3,
          set_object_acl/4]).
 
 -export([manual_start/0,
-         make_authorization/10,
-         make_signed_url_authorization/5,
-         universaltime/0]).
+         s3_url/6,
+         make_signed_url_authorization/5]).
 
 -ifdef(TEST).
 -compile([export_all]).
@@ -79,8 +79,6 @@
               location_constraint/0]).
 
 -opaque config() :: #config{}.
-
--type bucket_access_type() :: virtual_domain | path.
 
 -type bucket_attribute_name() :: acl
                                | location
@@ -128,7 +126,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     #config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
-     s3_url=Host}.
+    s3_url=Host}.
 
 -spec new(string(), string(), string(), bucket_access_type()) -> config().
 
@@ -141,12 +139,51 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 
 -spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts) ->
+    new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, "", v).
+
+-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist(), string(), atom()) -> config().
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, Region, SigningVersion) ->
     #config{
      access_key_id=AccessKeyID,
      secret_access_key=SecretAccessKey,
      s3_url=Host,
      bucket_access_type=BucketAccessType,
-     ssl_options=SslOpts}.
+     ssl_options=SslOpts,
+     region=Region,
+     signing_version=SigningVersion}.
+
+-spec new(#{atom() => any()}) -> config().
+new(#{} = Options) ->
+    maps:fold(fun set_config/3, #config{}, Options).
+
+-spec set_config(atom(), any(), #config{}) -> #config{}.
+set_config(s3_url, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{s3_url = Value};
+set_config(access_key_id, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{access_key_id = Value};
+set_config(secret_access_key, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{secret_access_key = Value};
+set_config(bucket_access_type, Value, #config{} = Config) when is_atom(Value) ->
+    Config#config{bucket_access_type = Value};
+set_config(ssl_options, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{ssl_options = Value};
+set_config(region, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{region = Value};
+set_config(service, Value, #config{} = Config) when is_list(Value) ->
+    Config#config{service = Value};
+set_config(signing_version, Value, #config{} = Config) when is_atom(Value) ->
+    Config#config{signing_version = Value}.
+
+%% Stubs for backcompat.
+make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
+                              Expires, RawHeaders) ->
+    mini_s3_signing:make_signed_url_authorization_v2(SecretKey, Method, CanonicalizedResource, Expires, RawHeaders).
+
+
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config = #config{}) ->
+    mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config = #config{}).
+
+
 
 
 
@@ -177,7 +214,7 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Con
          {"x-amz-copy-source-if-modified-since",
           proplists:get_value(if_modified_since, Options)},
          {"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}],
-    {Headers, _Body} = s3_request(Config, put, DestBucketName, [$/|DestKeyName],
+    {Headers, _Body} = mini_s3_signing:s3_request(Config, put, DestBucketName, [$/|DestKeyName],
                                   "", [], <<>>, RequestHeaders),
     [{copy_source_version_id,
       proplists:get_value("x-amz-copy-source-version-id", Headers, "false")},
@@ -237,7 +274,7 @@ delete_object(BucketName, Key) ->
 
 delete_object(BucketName, Key, Config)
   when is_list(BucketName), is_list(Key) ->
-    {Headers, _Body} = s3_request(Config, delete,
+    {Headers, _Body} = mini_s3_signing:s3_request(Config, delete,
                                   BucketName, [$/|Key], "", [], <<>>, []),
     Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
     Id = proplists:get_value("x-amz-version-id", Headers, "null"),
@@ -257,7 +294,7 @@ delete_object_version(BucketName, Key, Version, Config)
   when is_list(BucketName),
        is_list(Key),
        is_list(Version)->
-    {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key],
+    {Headers, _Body} = mini_s3_signing:s3_request(Config, delete, BucketName, [$/|Key],
                                   "versionId=" ++ Version, [], <<>>, []),
     Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
     Id = proplists:get_value("x-amz-version-id", Headers, "null"),
@@ -384,153 +421,6 @@ decode_permission("READ")         -> read;
 decode_permission("READ_ACP")     -> read_acp.
 
 
-%% @doc Canonicalizes a proplist of {"Header", "Value"} pairs by
-%% lower-casing all the Headers.
--spec canonicalize_headers([{string() | binary() | atom(), Value::string()}]) ->
-                                  [{LowerCaseHeader::string(), Value::string()}].
-canonicalize_headers(Headers) ->
-    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
-
--spec to_string(atom() | binary() | string()) -> string().
-to_string(A) when is_atom(A) ->
-    erlang:atom_to_list(A);
-to_string(B) when is_binary(B) ->
-    erlang:binary_to_list(B);
-to_string(S) when is_list(S) ->
-    S.
-
-%% @doc Retrieves a value from a set of canonicalized headers.  The
-%% given header should already be canonicalized (i.e., lower-cased).
-%% Returns the value or the empty string if no such value was found.
--spec retrieve_header_value(Header::string(),
-                            AllHeaders::[{Header::string(), Value::string()}]) ->
-                                   string().
-retrieve_header_value(Header, AllHeaders) ->
-    proplists:get_value(Header, AllHeaders, "").
-
-%% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
--define(EPOCH, 62167219200).
--define(DAY, 86400).
-
-%% @doc Number of seconds since the Epoch that a request can be valid for, specified by
-%% TimeToLive, which is the number of seconds from "right now" that a request should be
-%% valid. If the argument provided is a tuple, we use the interval logic that will only
-%% result in Interval / 86400 unique expiration times per day
--spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
-                             Expires::non_neg_integer().
-expiration_time({TimeToLive, Interval}) ->
-    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
-    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
-    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
-    %% How many seconds are we into today?
-    TodayOffset = NowSecs - MidnightSecs,
-    Buffer = case (TodayOffset + Interval) >= ?DAY of
-        %% true if we're in the day's last interval, don't let it spill into tomorrow
-        true ->
-            ?DAY - TodayOffset;
-        %% false means this interval is bounded by today
-        _ ->
-            Interval - (TodayOffset rem Interval)
-    end,
-    NowSecs + Buffer - ?EPOCH + TimeToLive;
-expiration_time(TimeToLive) ->
-    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
-    (Now - ?EPOCH) + TimeToLive.
-
-%% Abstraction of universaltime, so it can be mocked via meck
--spec universaltime() -> calendar:datetime().
-universaltime() ->
-    erlang:universaltime().
-
--spec if_not_empty(string(), iolist()) -> iolist().
-if_not_empty("", _V) ->
-    "";
-if_not_empty(_, Value) ->
-    Value.
-
--spec format_s3_uri(config(), string()) -> string().
-format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
-    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
-    case BAccessType of
-        virtual_hosted ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
-                           if_not_empty(Host, [Host, $.]),
-                           if_not_empty(UserInfo, [UserInfo, "@"]),
-                           Domain, ":", erlang:integer_to_list(Port)]);
-        path ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
-                           if_not_empty(UserInfo, [UserInfo, "@"]),
-                           Domain, ":", erlang:integer_to_list(Port),
-                           if_not_empty(Host, [$/, Host])])
-    end.
-
-
-
-%% @doc Generate an S3 URL using Query String Request Authentication
-%% (see
-%% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
-%% for details).
-%%
-%% Note that this is **NOT** a complete implementation of the S3 Query
-%% String Request Authentication signing protocol.  In particular, it
-%% does nothing with "x-amz-*" headers, nothing for virtual hosted
-%% buckets, and nothing for sub-resources.  It currently works for
-%% relatively simple use cases (e.g., providing URLs to which
-%% third-parties can upload specific files).
-%%
-%% Consult the official documentation (linked above) if you wish to
-%% augment this function's capabilities.
--spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
-             proplists:proplist(), config()) -> binary().
-s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
-       Config = #config{access_key_id=AccessKey,
-                        secret_access_key=SecretKey})
-  when is_list(BucketName), is_list(Key) ->
-
-    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
-
-    Path = lists:flatten([$/, BucketName, $/ , Key]),
-    CanonicalizedResource = ms3_http:url_encode_loose(Path),
-
-    {_StringToSign, Signature} = mini_s3:make_signed_url_authorization(SecretKey, Method,
-                                                               CanonicalizedResource,
-                                                               Expires, RawHeaders),
-
-    RequestURI = iolist_to_binary([
-                                   format_s3_uri(Config, ""), CanonicalizedResource,
-                                   $?, "AWSAccessKeyId=", AccessKey,
-                                   $&, "Expires=", Expires,
-                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
-                                  ]),
-    RequestURI.
-
-make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
-                              Expires, RawHeaders) ->
-    Headers = canonicalize_headers(RawHeaders),
-
-    HttpMethod = string:to_upper(atom_to_list(Method)),
-
-    ContentType = retrieve_header_value("content-type", Headers),
-    ContentMD5 = retrieve_header_value("content-md5", Headers),
-
-    %% We don't currently use this, but I'm adding a placeholder for future enhancements See
-    %% the URL in the docstring for details
-    CanonicalizedAMZHeaders = "",
-
-
-    StringToSign = lists:flatten([HttpMethod, $\n,
-                                  ContentMD5, $\n,
-                                  ContentType, $\n,
-                                  Expires, $\n,
-                                  CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
-                                  CanonicalizedResource
-                                 ]),
-
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
-    {StringToSign, Signature}.
-
-
 -spec get_object(string(), string(), proplists:proplist()) ->
                         proplists:proplist().
 
@@ -550,7 +440,7 @@ get_object(BucketName, Key, Options, Config) ->
                       undefined -> "";
                       Version   -> ["versionId=", Version]
                   end,
-    {Headers, Body} = s3_request(Config, get, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+    {Headers, Body} = mini_s3_signing:s3_request(Config, get, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
     [{etag, proplists:get_value("etag", Headers)},
      {content_length, proplists:get_value("content-length", Headers)},
      {content_type, proplists:get_value("content-type", Headers)},
@@ -602,7 +492,7 @@ get_object_metadata(BucketName, Key, Options, Config) ->
                       undefined -> "";
                       Version   -> ["versionId=", Version]
                   end,
-    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+    {Headers, _Body} = mini_s3_signing:s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
     [{last_modified, proplists:get_value("last-modified", Headers)},
      {etag, proplists:get_value("etag", Headers)},
      {content_length, proplists:get_value("content-length", Headers)},
@@ -621,7 +511,7 @@ get_object_torrent(BucketName, Key) ->
 -spec get_object_torrent(string(), string(), config()) -> proplists:proplist().
 
 get_object_torrent(BucketName, Key, Config) ->
-    {Headers, Body} = s3_request(Config, get, BucketName, [$/|Key], "torrent", [], <<>>, []),
+    {Headers, Body} = mini_s3_signing:s3_request(Config, get, BucketName, [$/|Key], "torrent", [], <<>>, []),
     [{delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
      {version_id, proplists:get_value("x-amz-delete-marker", Headers, "false")},
      {torrent, list_to_binary(Body)}].
@@ -707,7 +597,7 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
         ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} ||
                {MKey, MValue} <- proplists:get_value(meta, Options, [])],
     POSTData = {iolist_to_binary(Value), ContentType},
-    {Headers, _Body} = s3_request(Config, put, BucketName, [$/|Key], "", [],
+    {Headers, _Body} = mini_s3_signing:s3_request(Config, put, BucketName, [$/|Key], "", [],
                                   POSTData, RequestHeaders),
     [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
@@ -807,7 +697,7 @@ encode_grant(Grant) ->
       {'Permission', [encode_permission(proplists:get_value(permission, Grant))]}]}.
 
 s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    case s3_request(Config, Method, Host, Path,
+    case mini_s3_signing:s3_request(Config, Method, Host, Path,
                     Subresource, Params, POSTData, Headers) of
         {_Headers, ""} -> ok;
         {_Headers, Body} ->
@@ -823,7 +713,7 @@ s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Hea
     end.
 
 s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    {_Headers, Body} = s3_request(Config, Method, Host, Path,
+    {_Headers, Body} = mini_s3_signing:s3_request(Config, Method, Host, Path,
                                   Subresource, Params, POSTData, Headers),
     XML = element(1,xmerl_scan:string(Body)),
     case XML of
@@ -834,101 +724,6 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
         _ ->
             XML
     end.
-
-s3_request(Config = #config{access_key_id=AccessKey,
-                            secret_access_key=SecretKey,
-                            ssl_options=SslOpts},
-           Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    {ContentMD5, ContentType, Body} =
-        case POSTData of
-            {PD, CT} ->
-                {base64:encode(crypto:hash(md5,PD)), CT, PD};
-            PD ->
-                %% On a put/post even with an empty body we need to
-                %% default to some content-type
-                case Method of
-                    _ when put == Method; post == Method ->
-                        {"", "text/xml", PD};
-                    _ ->
-                        {"", "", PD}
-                end
-        end,
-    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when
-                                        V =/= undefined -> true;
-                                  (_) -> false
-                              end, Headers),
-    Date = httpd_util:rfc1123_date(erlang:localtime()),
-    EscapedPath = ms3_http:url_encode_loose(Path),
-    {_StringToSign, Authorization} =
-        make_authorization(AccessKey, SecretKey, Method,
-                           ContentMD5, ContentType,
-                           Date, AmzHeaders, Host,
-                           EscapedPath, Subresource),
-    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders0 = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
-        case ContentMD5 of
-            "" -> [];
-            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
-        end,
-    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
-                          true ->
-                              RequestHeaders0;
-                          false ->
-                              [{"Content-Type", ContentType} | RequestHeaders0]
-                      end,
-    RequestURI = lists:flatten([format_s3_uri(Config, Host),
-                                EscapedPath,
-                                if_not_empty(Subresource, [$?, Subresource]),
-                                if
-                                    Params =:= [] -> "";
-                                    Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
-                                    true -> [$&, ms3_http:make_query_string(Params)]
-                                end]),
-    IbrowseOpts = [ {ssl_options, SslOpts} ],
-    Response = case Method of
-                   get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-                   delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-                   head ->
-                       %% ibrowse is unable to handle HEAD request responses that are sent
-                       %% with chunked transfer-encoding (why servers do this is not
-                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
-                       %% to use HTTP 1.0 works around the problem.
-                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        IbrowseOpts1);
-                   _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
-               end,
-    case Response of
-        {ok, Status, ResponseHeaders0, ResponseBody} ->
-            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
-            case erlang:list_to_integer(Status) of
-                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
-                    {ResponseHeaders, ResponseBody};
-                BadStatus ->
-                    erlang:error({aws_error, {http_error, BadStatus,
-                                              {ResponseHeaders, ResponseBody}}})
-                end;
-        {error, Error} ->
-            erlang:error({aws_error, {socket_error, Error}})
-    end.
-
-make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
-                   Host, Resource, Subresource) ->
-    CanonizedAmzHeaders =
-        [[Name, $:, Value, $\n] || {Name, Value} <- lists:sort(AmzHeaders)],
-    StringToSign = [string:to_upper(atom_to_list(Method)), $\n,
-                    ContentMD5, $\n,
-                    ContentType, $\n,
-                    Date, $\n,
-                    CanonizedAmzHeaders,
-                    if_not_empty(Host, [$/, Host]),
-                    Resource,
-                    if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
-    {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
     Defaults =  envy:get(mini_s3, s3_defaults, list),

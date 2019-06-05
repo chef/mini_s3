@@ -1,0 +1,12 @@
+#{
+  time    => {{2015,08,30},{12,36,00}},
+  ttl     => 0,
+  headers => [{"host", "example.amazonaws.com"},{"x-amz-date","20150830T123600Z"}],
+  config  => #{
+    access_key_id      => "AKIDEXAMPLE",
+    secret_access_key  => "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY", 
+    region             => "us-east-1",
+    service            => "service",
+    signing_version    => v4
+   }
+ }

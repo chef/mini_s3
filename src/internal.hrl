@@ -18,9 +18,17 @@
 %% under the License.
 %%
 
+-define(DEFAULT_REGION, "us-east-1").
+
+-type bucket_access_type() :: virtual_domain | path.
+
 -record(config, {
-          s3_url="http://s3.amazonaws.com"::string(),
-          access_key_id::string(),
-          secret_access_key::string(),
-          bucket_access_type=virtual_hosted::mini_s3:bucket_access_type(),
-          ssl_options=[]::proplists:proplist()}).
+          s3_url="http://s3.amazonaws.com"  :: string(),
+          access_key_id                     :: string(),
+          secret_access_key                 :: string(),
+          bucket_access_type=virtual_hosted :: mini_s3:bucket_access_type(),
+          ssl_options=[]                    :: proplists:proplist(),
+          region = ?DEFAULT_REGION          :: string(),
+          service = "s3"                    :: string(),
+          signing_version = sigv2           :: sigv2 | sigv4
+         }).
