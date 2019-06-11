@@ -479,6 +479,40 @@ s3_request(Config = #config{access_key_id=AccessKey,
             erlang:error({aws_error, {socket_error, Error}})
     end.
 
+make_s3_request(Method, RequestURI, RequestHeaders, IbrowseOpts, Body) ->
+    Response = case Method of
+                   get ->
+                       ibrowse:send_req(RequestURI, RequestHeaders, Method, [], IbrowseOpts);
+                   delete ->
+                       ibrowse:send_req(RequestURI, RequestHeaders, Method, [], IbrowseOpts);
+                   head ->
+                       %% ibrowse is unable to handle HEAD request responses that are sent
+                       %% with chunked transfer-encoding (why servers do this is not
+                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
+                       %% to use HTTP 1.0 works around the problem.
+                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
+                       ibrowse:send_req(RequestURI, RequestHeaders, Method, [],
+                                        IbrowseOpts1);
+                   _ ->
+                       ibrowse:send_req(RequestURI, RequestHeaders, Method, Body, IbrowseOpts)
+               end,
+    case Response of
+        {ok, Status, ResponseHeaders0, ResponseBody} ->
+            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
+            case erlang:list_to_integer(Status) of
+                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
+                    {ResponseHeaders, ResponseBody};
+                BadStatus ->
+                    erlang:error({aws_error, {http_error, BadStatus,
+                                              {ResponseHeaders, ResponseBody}}})
+                end;
+        {error, Error} ->
+            erlang:error({aws_error, {socket_error, Error}})
+    end.
+
+
+
+
 make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
     CanonizedAmzHeaders =

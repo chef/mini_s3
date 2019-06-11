@@ -234,6 +234,72 @@ s3_uri_v2_test_() ->
     [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
 
 
+s3_uri_v4_test_() ->
+    Config = #config{
+                access_key_id = "access_key_id",
+                secret_access_key = "secret_access_key",
+                signing_version=v2
+               },
+
+    RawHeaders = [],
+
+    TestFun = fun({Method, BucketName, Key, Lifetime, MockedTime}) ->
+                      meck:new(mini_s3_signing, [no_link, passthrough]),
+
+                      meck:expect(mini_s3_signing, universaltime, fun() -> MockedTime end),
+                      meck:expect(mini_s3_signing, make_signed_url_authorization_v4, fun(_,_,_,_,_) -> {"", <<"k6E/2haoGH5vGU9qDTBRs1qNGKA=">>} end),
+
+                      URL = binary_to_list(mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config)),
+                      io:format("URL: ~p~n", [URL]),
+                      io:format("History: ~p~n", [meck:history(mini_s3_signing)]),
+
+                      meck:unload(mini_s3_signing),
+
+                      URL
+              end,
+
+    Tests = [
+% TODO FIX
+%             {{'GET', "BUCKET", "KEY", 3600, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET/KEY?AWSAccessKeyId=access_key_id&Expires=1422320400&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"},
+%             {{'GET', "BUCKET2", "KEY2", {3600, 900}, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET2/KEY2?AWSAccessKeyId=access_key_id&Expires=1422321300&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"}
+            ],
+
+    [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
+
+
+s3_request_test_() ->
+    Config = #config{
+                access_key_id = "access_key_id",
+                secret_access_key = "secret_access_key",
+                signing_version=v2
+               },
+
+    RawHeaders = [],
+
+    TestFun = fun({Method, BucketName, Key, Lifetime, MockedTime}) ->
+                      meck:new(mini_s3_signing, [no_link, passthrough]),
+
+                      meck:expect(mini_s3_signing, universaltime, fun() -> MockedTime end),
+                      meck:expect(mini_s3_signing, make_signed_url_authorization_v4, fun(_,_,_,_,_) -> {"", <<"k6E/2haoGH5vGU9qDTBRs1qNGKA=">>} end),
+
+                      URL = binary_to_list(mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config)),
+                      io:format("URL: ~p~n", [URL]),
+                      io:format("History: ~p~n", [meck:history(mini_s3_signing)]),
+
+                      meck:unload(mini_s3_signing),
+
+                      URL
+              end,
+
+    Tests = [
+             {{'GET', "BUCKET", "KEY", 3600, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET/KEY?AWSAccessKeyId=access_key_id&Expires=1422320400&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"},
+             {{'GET', "BUCKET2", "KEY2", {3600, 900}, {{2015,1,27},{0,0,0}}}, "http://s3.amazonaws.com:80/BUCKET2/KEY2?AWSAccessKeyId=access_key_id&Expires=1422321300&Signature=k6E/2haoGH5vGU9qDTBRs1qNGKA%3D"}
+            ],
+
+    [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
+
+
+
 
 %%
 %% Support infrastructure
