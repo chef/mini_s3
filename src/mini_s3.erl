@@ -440,7 +440,9 @@ expiration_time(TimeToLive) ->
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
 universaltime() ->
-    erlang:universaltime().
+    Time = erlang:universaltime(),
+    io:format("EXT: universaltime->(~p)~n", [Time]),
+    Time.
 
 -spec if_not_empty(string(), iolist()) -> iolist().
 if_not_empty("", _V) ->
@@ -488,6 +490,9 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key) ->
 
+    io:format("EXT: s3_url[~p,~p,~p,~p,~p,~p]~n", [Method, BucketName, Key, Lifetime, RawHeaders, Config]),
+
+
     Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 
     Path = lists:flatten([$/, BucketName, $/ , Key]),
@@ -503,6 +508,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
                                    $&, "Expires=", Expires,
                                    $&, "Signature=", ms3_http:url_encode_loose(Signature)
                                   ]),
+    io:format("EXT: s3_url->(~p)~n", [RequestURI]),
+
     RequestURI.
 
 make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
@@ -839,6 +846,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
                             ssl_options=SslOpts},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+    io:format("EXT: s3_request[~p,~p,~p,~p,~p,~p,~p,~p]~n",
+              [ Config, Method, Host, Path, Subresource, Params, POSTData, Headers]),
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
@@ -885,6 +894,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                     true -> [$&, ms3_http:make_query_string(Params)]
                                 end]),
     IbrowseOpts = [ {ssl_options, SslOpts} ],
+    io:format("EXT: s3_request/ibrowse[~p,~p,~p,~p,~p]~n",
+              [ RequestURI, RequestHeaders1, Method, [], IbrowseOpts ]),
     Response = case Method of
                    get ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
@@ -901,7 +912,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                    _ ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
                end,
-    case Response of
+    io:format("EXT: s3_request/ibrowse->(~p)~n", [ Response ]),
+    R = case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
             ResponseHeaders = canonicalize_headers(ResponseHeaders0),
             case erlang:list_to_integer(Status) of
@@ -913,7 +925,9 @@ s3_request(Config = #config{access_key_id=AccessKey,
                 end;
         {error, Error} ->
             erlang:error({aws_error, {socket_error, Error}})
-    end.
+    end,
+    io:format("EXT: s3_request->(~p)~n", [R]),
+    R.
 
 make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
