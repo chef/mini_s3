@@ -29,7 +29,8 @@
 -export([canonicalize_headers/1,
          retrieve_header_value/2,
          make_signed_url_authorization_v2/5,
-         make_signed_url_authorization_v4/5
+         make_signed_url_authorization_v4/5,
+         make_s3_request/5 % only to silence warning  
         ]).
 
 -export_type([config/0]).
@@ -245,7 +246,6 @@ format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
              proplists:proplist(), config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #config{access_key_id=AccessKey,
-                        secret_access_key=SecretKey,
                         signing_version=v2})
   when is_list(BucketName), is_list(Key) ->
 
@@ -254,8 +254,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
     Path = lists:flatten([$/, BucketName, $/ , Key]),
     CanonicalizedResource = ms3_http:url_encode_loose(Path),
 
-    {_StringToSign, Signature} = mini_s3_signing:make_signed_url_authorization_v2(Method, CanonicalizedResource,
-                                                                  Expires, RawHeaders, SecretKey),
+    {_StringToSign, Signature} = make_signed_url_authorization_v2(Method, CanonicalizedResource,
+                                                                                  Expires, RawHeaders, Config),
 
     RequestURI = iolist_to_binary([
                                    format_s3_uri(Config, ""), CanonicalizedResource,

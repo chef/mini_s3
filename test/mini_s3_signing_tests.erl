@@ -192,6 +192,20 @@ make_v4_credential_scope_test_() ->
           ],
     [ ?_assertEqual(E,flat_tapply(make_v4_credential_scope, A)) || {E,A} <- Vec].
 
+
+make_signed_url_authorization_v2_test_() ->
+    Vec = [{ok,
+            [put, "bookshelf", "organization-783988809176335606179645d55092be/checksum-ed32183dc27c40b80e3cf85146ad6b41", 900,
+             [{"content-md5",<<"7TIYPcJ8QLgOPPhRRq1rQQ==">>},
+              {"content-type","application/x-binary"}],
+             #config{s3_url = "https://api.chef-server.dev", access_key_id = "f09a26098edfcf0052d09a3630757a5b698b072f",
+                     secret_access_key = "2ecc50856cfafd7cd324ffd345346c349962b26c24f982c3214f5fef6e307d5e86634a8053d6a643",
+                     bucket_access_type = path, ssl_options = [], region = [], service = "s3", signing_version = v2}
+            ]}
+          ],
+
+    [ ?_assertEqual(E,flat_tapply(make_signed_url_authorization_v2, A)) || {E,A} <- Vec].
+
 make_signed_url_authorization_v4_test_() ->
     Vec = [{"/test.txt?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAIOSFODNN7EXAMPLE%2F20130524%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20130524T000000Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404",
             [get, "/test.txt", {{{2013,5,24},{0,0,0}}, 86400}, [{host, "examplebucket.s3.amazonaws.com"}],
@@ -278,17 +292,17 @@ s3_request_test_() ->
 
     TestFun = fun({Method, BucketName, Key, Lifetime, MockedTime}) ->
                       meck:new(mini_s3_signing, [no_link, passthrough]),
+                      meck:new(ibrowse, []),
 
                       meck:expect(mini_s3_signing, universaltime, fun() -> MockedTime end),
-                      meck:expect(mini_s3_signing, make_signed_url_authorization_v4, fun(_,_,_,_,_) -> {"", <<"k6E/2haoGH5vGU9qDTBRs1qNGKA=">>} end),
+                      meck:expect(ibrowse, send_req, fun(_URI, _Headers, _Method, _IbrowseOpts) -> ok end),
 
-                      URL = binary_to_list(mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config)),
+                      URL = binary_to_list(mini_s3_signing:s3_request(Method, BucketName, Key, Lifetime, RawHeaders, Config)),
                       io:format("URL: ~p~n", [URL]),
                       io:format("History: ~p~n", [meck:history(mini_s3_signing)]),
 
-                      meck:unload(mini_s3_signing),
-
-                      URL
+                      meck:unload(ibrowse),
+                      meck:unload(mini_s3_signing)
               end,
 
     Tests = [

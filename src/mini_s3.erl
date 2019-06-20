@@ -180,12 +180,8 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
     mini_s3_signing:make_signed_url_authorization_v2(SecretKey, Method, CanonicalizedResource, Expires, RawHeaders).
 
 
-s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config = #config{}) ->
-    mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config = #config{}).
-
-
-
-
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders, #config{} = Config) ->
+    mini_s3_signing:s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config).
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
