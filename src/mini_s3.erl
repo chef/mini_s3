@@ -310,7 +310,7 @@ delete_object_version(BucketName, Key, Version, Config) ->
 list_buckets() ->
     erlcloud_s3:list_buckets().
 
-%-spec list_buckets(config()) -> proplists:proplist().
+-spec list_buckets(config()) -> proplists:proplist().
 %
 %list_buckets(Config) ->
 %    Doc = s3_xml_request(Config, get, "", "/", "", [], <<>>, []),
