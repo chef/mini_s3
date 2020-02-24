@@ -21,6 +21,11 @@
 
 -module(mini_s3).
 
+-behavior(application).
+
+-export([start/2]).
+-export([stop/1 ]).
+
 -export([new/2,
          new/3,
          new/4,
@@ -104,6 +109,17 @@
                              | us_west_1
                              | eu.
 
+
+start(normal, _) ->
+    {ok, _} = application:ensure_all_started(erlcloud),
+    ok = application:set_env(erlcloud, aws_access_key_id,        application:get_env(mini_s3, aws_access_key_id)),
+    ok = application:set_env(erlcloud, aws_secret_access_key,    application:get_env(mini_s3, aws_secret_access_key)),
+    ok = application:set_env(erlcloud, aws_security_token,       application:get_env(mini_s3, aws_security_token)),
+    ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
+    {ok, self()}.
+ 
+stop(_) ->
+    ok.
 
 %%
 %% This is a helper function that exists to make development just a
