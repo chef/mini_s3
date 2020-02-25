@@ -115,17 +115,15 @@
 % attempt to get s3 credentials into erlcloud
 start(normal, _) ->
     {ok, _} = application:ensure_all_started(erlcloud),
-    ok = application:set_env(erlcloud, aws_access_key_id,        application:get_env(mini_s3, aws_access_key_id)),
-    ok = application:set_env(erlcloud, aws_secret_access_key,    application:get_env(mini_s3, aws_secret_access_key)),
-    ok = application:set_env(erlcloud, aws_security_token,       application:get_env(mini_s3, aws_security_token)),
+    ok = application:set_env(erlcloud, aws_access_key_id,        os:getenv("aws_access_key_id",     "aws_access_key_id"    )),
+    ok = application:set_env(erlcloud, aws_secret_access_key,    os:getenv("aws_secret_access_key", "aws_secret_access_key")),
+    ok = application:set_env(erlcloud, aws_security_token,       os:getenv("aws_security_token",    "aws_security_token"   )),
     ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
 
-    % this didn't work.  i didn't see the output anywhere.
-    io:format("~n~nMINI_S3 STARTED~n~n"),
+    % output appears in logs 
+    io:format("~n~nMINI_S3 STARTEDING~n~n"),
 
-    % hacking this temporarily to see if i can even detect an error at this phase
-    %{ok, self()}.
-    {error, "mini_s3 didn't start.  can we see this?"}.
+    {ok, self()}.
  
 stop(_) ->
     ok.
@@ -154,8 +152,8 @@ manual_start() ->
 %     secret_access_key=SecretAccessKey}.
 
 new(_AccessKeyID, _SecretAccessKey) ->
-    AccessKeyID =     application:get_env(mini_s3, aws_access_key_id),
-    SecretAccessKey = application:get_env(mini_s3, aws_secret_access_key),
+    AccessKeyID =     application:get_env(erlcloud, aws_access_key_id),
+    SecretAccessKey = application:get_env(erlcloud, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
 -spec new(string(), string(), string()) -> config().
@@ -167,8 +165,8 @@ new(_AccessKeyID, _SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(_AccessKeyID, _SecretAccessKey, Host) ->
-    AccessKeyID =     application:get_env(mini_s3, aws_access_key_id),
-    SecretAccessKey = application:get_env(mini_s3, aws_secret_access_key),
+    AccessKeyID =     application:get_env(erlcloud, aws_access_key_id),
+    SecretAccessKey = application:get_env(erlcloud, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
