@@ -83,7 +83,10 @@
               bucket_acl/0,
               location_constraint/0]).
 
--opaque config() :: #config{}.
+% mini_s3 config and erlcloud config differ,
+% but both are tuples.
+%-opaque config() :: #config{}.
+-type config() :: tuple().
 
 -type bucket_access_type() :: virtual_domain | path.
 
@@ -109,7 +112,7 @@
                              | us_west_1
                              | eu.
 
-
+% attempt to get s3 credentials into erlcloud
 start(normal, _) ->
     {ok, _} = application:ensure_all_started(erlcloud),
     ok = application:set_env(erlcloud, aws_access_key_id,        application:get_env(mini_s3, aws_access_key_id)),
@@ -117,9 +120,12 @@ start(normal, _) ->
     ok = application:set_env(erlcloud, aws_security_token,       application:get_env(mini_s3, aws_security_token)),
     ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
 
+    % this didn't work.  i didn't see the output anywhere.
     io:format("~n~nMINI_S3 STARTED~n~n"),
 
-    {ok, self()}.
+    % hacking this temporarily to see if i can even detect an error at this phase
+    %{ok, self()}.
+    {error, "mini_s3 didn't start.  can we see this?"}.
  
 stop(_) ->
     ok.
@@ -134,28 +140,44 @@ manual_start() ->
     application:start(ssl),
     application:start(inets).
 
-%-spec new(string(), string()) -> config().
-%
+
+%--------------------------------------------------------------------------
+% new seems to produce a 'config' record (tuple).
+% erlcloud's version does also, but the record isn't the same as mini_s3's.
+% HACKED to pass back custom hardcoded authentication keys
+
+-spec new(string(), string()) -> config().
+
 %new(AccessKeyID, SecretAccessKey) ->
 %    #config{
 %     access_key_id=AccessKeyID,
 %     secret_access_key=SecretAccessKey}.
-new(AccessKeyID, SecretAccessKey) ->
+
+new(_AccessKeyID, _SecretAccessKey) ->
+    AccessKeyID =     application:get_env(mini_s3, aws_access_key_id),
+    SecretAccessKey = application:get_env(mini_s3, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
-%-spec new(string(), string(), string()) -> config().
-%
+-spec new(string(), string(), string()) -> config().
+
 %new(AccessKeyID, SecretAccessKey, Host) ->
 %    #config{
 %     access_key_id=AccessKeyID,
 %     secret_access_key=SecretAccessKey,
 %     s3_url=Host}.
 
-new(AccessKeyID, SecretAccessKey, Host) ->
+new(_AccessKeyID, _SecretAccessKey, Host) ->
+    AccessKeyID =     application:get_env(mini_s3, aws_access_key_id),
+    SecretAccessKey = application:get_env(mini_s3, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
 
-%-spec new(string(), string(), string(), bucket_access_type()) -> config().
-%
+% erlcloud wants accesskey, secretaccesskey, host, port.
+% mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
+% for now, converting a mini_s3 new/4 call to an erlcloud new/3,
+% and leaving off 4th argument
+
+-spec new(string(), string(), string(), bucket_access_type()) -> config().
+
 %new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 %    #config{
 %     access_key_id=AccessKeyID,
@@ -163,24 +185,38 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 %     s3_url=Host,
 %     bucket_access_type=BucketAccessType}.
 
-new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
+new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType) ->
+    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
 
 -spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
-new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts) ->
-    #config{
-     access_key_id=AccessKeyID,
-     secret_access_key=SecretAccessKey,
-     s3_url=Host,
-     bucket_access_type=BucketAccessType,
-     ssl_options=SslOpts}.
+
+% erlcloud has no new/5. 
+% for now, leaving off last 2 arguments, and converting to
+% new/3
+%
+% this is called in oc_erchef app in:
+%   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
+% chef_s3 is getting credentials using chef_secrets, and passing
+% them in here to create a config record to use.  will hack new/3
+% to pass back my own credentials.
+
+new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType, _SslOpts) ->
+    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
+    % this was the function body (below)
+    %#config{
+    % access_key_id=AccessKeyID,
+    % secret_access_key=SecretAccessKey,
+    % s3_url=Host,
+    % bucket_access_type=BucketAccessType,
+    % ssl_options=SslOpts}.
+%--------------------------------------------------------------------------
 
 
 
+%--------------------------------------------------------------------------
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
-%-spec copy_object(string(), string(), string(),
-%                  string(), proplists:proplist()) -> proplists:proplist().
+-spec copy_object(string(), string(), string(), string(), proplists:proplist()) -> proplists:proplist().
 %copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
 %    copy_object(DestBucketName, DestKeyName, SrcBucketName,
 %                SrcKeyName, Options, default_config()).
