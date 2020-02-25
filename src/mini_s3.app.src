@@ -32,7 +32,7 @@
                   xmerl,
                   ibrowse]},
   {modules, []},
-  {mod, {mini_s3, []}},
-  {env, [{aws_access_key_id, "censored"}, {aws_secret_access_key, "censored"}, {aws_security_token, "censored"}]}
+  {mod, {mini_s3, []}}%,
+  %{env, [{aws_access_key_id, "censored"}, {aws_secret_access_key, "censored"}, {aws_security_token, "censored"}]}
  ]
 }.
