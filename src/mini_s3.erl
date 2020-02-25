@@ -116,6 +116,9 @@ start(normal, _) ->
     ok = application:set_env(erlcloud, aws_secret_access_key,    application:get_env(mini_s3, aws_secret_access_key)),
     ok = application:set_env(erlcloud, aws_security_token,       application:get_env(mini_s3, aws_security_token)),
     ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
+
+    io:format("~n~nMINI_S3 STARTED~n~n"),
+
     {ok, self()}.
  
 stop(_) ->
