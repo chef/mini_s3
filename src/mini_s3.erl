@@ -78,15 +78,20 @@
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
--export_type([config/0,
+%-include_lib("erlcloud/include/erlcoud_aws.hrl").
+-include("../erlcloud/include/erlcoud_aws.hrl").
+
+%-export_type([config/0,
+-export_type([aws_config/0,
               bucket_attribute_name/0,
               bucket_acl/0,
               location_constraint/0]).
 
 % mini_s3 config and erlcloud config differ,
-% but both are tuples.
+% but both are tuples/records.
+% attempting to use aws_config record defined in erlcloud_aws.hrl.
+% substituting config for aws_config  defined in erlcloud_aws.hrl.
 %-opaque config() :: #config{}.
--type config() :: tuple().
 
 -type bucket_access_type() :: virtual_domain | path.
 
@@ -144,7 +149,8 @@ manual_start() ->
 % erlcloud's version does also, but the record isn't the same as mini_s3's.
 % HACKED to pass back custom hardcoded authentication keys
 
--spec new(string(), string()) -> config().
+%-spec new(string(), string()) -> config().
+-spec new(string(), string()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey) ->
 %    #config{
@@ -156,7 +162,8 @@ new(_AccessKeyID, _SecretAccessKey) ->
     SecretAccessKey = application:get_env(erlcloud, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
--spec new(string(), string(), string()) -> config().
+%-spec new(string(), string(), string()) -> config().
+-spec new(string(), string(), string()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey, Host) ->
 %    #config{
@@ -174,7 +181,8 @@ new(_AccessKeyID, _SecretAccessKey, Host) ->
 % for now, converting a mini_s3 new/4 call to an erlcloud new/3,
 % and leaving off 4th argument
 
--spec new(string(), string(), string(), bucket_access_type()) -> config().
+%-spec new(string(), string(), string(), bucket_access_type()) -> config().
+-spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 %    #config{
@@ -186,7 +194,8 @@ new(_AccessKeyID, _SecretAccessKey, Host) ->
 new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType) ->
     erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
 
--spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
+%-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
+-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 
 % erlcloud has no new/5. 
 % also, arguments differ.  erlcloud/4 expects accesskeyid, secretaccesskey, host, port)
@@ -364,8 +373,9 @@ delete_object_version(BucketName, Key, Version, Config) ->
 list_buckets() ->
     erlcloud_s3:list_buckets().
 
--spec list_buckets(config()) -> proplists:proplist().
-%
+%-spec list_buckets(config()) -> proplists:proplist().
+-spec list_buckets(aws_config()) -> proplists:proplist().
+
 %list_buckets(Config) ->
 %    Doc = s3_xml_request(Config, get, "", "/", "", [], <<>>, []),
 %    Buckets = [extract_bucket(Node)
@@ -558,12 +568,17 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
--spec format_s3_uri(config(), string()) -> string().
-format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
+%-spec format_s3_uri(config(), string()) -> string().
+-spec format_s3_uri(aws_config(), string()) -> string().
+%format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
+format_s3_uri(Config, Host) ->
+    S3Url = Config#aws_config.s3_scheme ++ Config#aws_config.s3_host ++ Config#aws_config.s3_port,
+    BAccessType = Config#aws_config.s3_bucket_access_method,
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
         http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
-        virtual_hosted ->
+        %virtual_hosted ->
+        vhost ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",
                            if_not_empty(Host, [Host, $.]),
                            if_not_empty(UserInfo, [UserInfo, "@"]),
@@ -592,12 +607,17 @@ format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
 %% Consult the official documentation (linked above) if you wish to
 %% augment this function's capabilities.
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
-             proplists:proplist(), config()) -> binary().
+             proplists:proplist(), aws_config()) -> binary().
+%             proplists:proplist(), config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
-       Config = #config{access_key_id=AccessKey,
-                        secret_access_key=SecretKey})
-  when is_list(BucketName), is_list(Key) ->
+%       erlcloud config record is different, not sure if mini_s3 config can be used
+%       Config = #config{access_key_id=AccessKey,
+%                        secret_access_key=SecretKey})
+        Config)
+  when is_list(BucketName), is_list(Key), is_tuple(Config) ->
 
+    AccessKey = Config#aws_config.access_key_id,
+    SecretKey = Config#aws_config.secret_access_key,
     Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 
     Path = lists:flatten([$/, BucketName, $/ , Key]),
