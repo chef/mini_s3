@@ -121,7 +121,7 @@ start(normal, _) ->
     ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
 
     % output appears in logs 
-    io:format("~n~nMINI_S3 STARTEDING~n~n"),
+    io:format("~n~nMINI_S3 STARTING~n~n"),
 
     {ok, self()}.
  
@@ -189,14 +189,11 @@ new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType) ->
 -spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
 
 % erlcloud has no new/5. 
-% for now, leaving off last 2 arguments, and converting to
-% new/3
+% also, arguments differ.  erlcloud/4 expects accesskeyid, secretaccesskey, host, port)
+% for now, attempting conversion to new/3
 %
 % this is called in oc_erchef app in:
 %   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
-% chef_s3 is getting credentials using chef_secrets, and passing
-% them in here to create a config record to use.  will hack new/3
-% to pass back my own credentials.
 
 new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType, _SslOpts) ->
     erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
@@ -296,6 +293,7 @@ encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 %    delete_bucket(BucketName, default_config()).
 
 delete_bucket(BucketName) ->
+    io:format("~nmini_s3:delete_bucket(~p)", [BucketName]),
     erlcloud_s3:delete_bucket(BucketName).
 
 %-spec delete_bucket(string(), config()) -> ok.
@@ -305,6 +303,7 @@ delete_bucket(BucketName) ->
 %    s3_simple_request(Config, delete, BucketName, "/", "", [], <<>>, []).
 
 delete_bucket(BucketName, Config) ->
+    io:format("~nmini_s3:delete_bucket(~p, ~p)", [BucketName, Config]),
     erlcloud_s3:delete_bucket(BucketName, Config).
 
 %-spec delete_object(string(), string()) -> proplists:proplist().
@@ -313,6 +312,7 @@ delete_bucket(BucketName, Config) ->
 %    delete_object(BucketName, Key, default_config()).
 
 delete_object(BucketName, Key) ->
+    io:format("~nmini_s3:delete_object(~p, ~p)", [BucketName, Key]),
     erlcloud_s3:delete_object(BucketName, Key).
 
 %-spec delete_object(string(), string(), config()) -> proplists:proplist().
@@ -327,6 +327,7 @@ delete_object(BucketName, Key) ->
 %     {version_id, Id}].
 
 delete_object(BucketName, Key, Config) ->
+    io:format("~nmini_s3:delete_object(~p, ~p, ~p)", [BucketName, Key, Config]),
     erlcloud_s3:delete_object(BucketName, Key, Config).
 
 %-spec delete_object_version(string(), string(), string()) ->
@@ -574,7 +575,7 @@ format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
                            if_not_empty(Host, [$/, Host])])
     end.
 
-
+% NOTE: erlcloud doesn't have s3_url function
 
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
@@ -714,8 +715,10 @@ get_object_acl(BucketName, Key, Options, Config) ->
 %get_object_metadata(BucketName, Key, Options) ->
 %    get_object_metadata(BucketName, Key, Options, default_config()).
 
+
+% erlcloud only supports passing a bucketname, key, and config
 get_object_metadata(BucketName, Key, Options) ->
-    erlcloud_s3:get_object_metadata(BucketName, Key, Options).
+    erlcloud_s3:get_object_metadata(BucketName, Key, Options, default_config()).
 
 %-spec get_object_metadata(string(), string(), proplists:proplist(), config()) -> proplists:proplist().
 %
@@ -737,6 +740,7 @@ get_object_metadata(BucketName, Key, Options) ->
 %     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
 
 get_object_metadata(BucketName, Key, Options, Config) ->
+    io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, Config]),
     erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
 extract_metadata(Headers) ->
@@ -1089,15 +1093,18 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
+%default_config() ->
+%    Defaults =  envy:get(mini_s3, s3_defaults, list),
+%    case proplists:is_defined(key_id, Defaults) andalso
+%        proplists:is_defined(secret_access_key, Defaults) of
+%        true ->
+%            {key_id, Key} = proplists:lookup(key_id, Defaults),
+%            {secret_access_key, AccessKey} =
+%                proplists:lookup(secret_access_key, Defaults),
+%            #config{access_key_id=Key, secret_access_key=AccessKey};
+%        false ->
+%            throw({error, missing_s3_defaults})
+%    end.
+
 default_config() ->
-    Defaults =  envy:get(mini_s3, s3_defaults, list),
-    case proplists:is_defined(key_id, Defaults) andalso
-        proplists:is_defined(secret_access_key, Defaults) of
-        true ->
-            {key_id, Key} = proplists:lookup(key_id, Defaults),
-            {secret_access_key, AccessKey} =
-                proplists:lookup(secret_access_key, Defaults),
-            #config{access_key_id=Key, secret_access_key=AccessKey};
-        false ->
-            throw({error, missing_s3_defaults})
-    end.
+   new(x, y). 
