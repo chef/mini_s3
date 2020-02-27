@@ -23,6 +23,10 @@
 
 -behavior(application).
 
+%%%%%%%%%
+-compile([export_all, nowarn_export_all]).
+%%%%%%%%%
+
 -export([start/2]).
 -export([stop/1 ]).
 
@@ -146,7 +150,7 @@ manual_start() ->
 %--------------------------------------------------------------------------
 % new seems to produce a 'config' record (tuple).
 % erlcloud's version does also, but the record isn't the same as mini_s3's.
-% HACKED to pass back custom hardcoded authentication keys
+% temporarily HACKED to pass back custom hardcoded authentication keys
 
 %-spec new(string(), string()) -> config().
 -spec new(string(), string()) -> aws_config().
@@ -157,8 +161,8 @@ manual_start() ->
 %     secret_access_key=SecretAccessKey}.
 
 new(_AccessKeyID, _SecretAccessKey) ->
-    AccessKeyID =     application:get_env(erlcloud, aws_access_key_id),
-    SecretAccessKey = application:get_env(erlcloud, aws_secret_access_key),
+    {ok, AccessKeyID    } = application:get_env(erlcloud, aws_access_key_id    ),
+    {ok, SecretAccessKey} = application:get_env(erlcloud, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
 %-spec new(string(), string(), string()) -> config().
@@ -171,8 +175,8 @@ new(_AccessKeyID, _SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(_AccessKeyID, _SecretAccessKey, Host) ->
-    AccessKeyID =     application:get_env(erlcloud, aws_access_key_id),
-    SecretAccessKey = application:get_env(erlcloud, aws_secret_access_key),
+    {ok, AccessKeyID    } = application:get_env(erlcloud, aws_access_key_id    ),
+    {ok, SecretAccessKey} = application:get_env(erlcloud, aws_secret_access_key),
     erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
@@ -571,8 +575,11 @@ if_not_empty(_, Value) ->
 -spec format_s3_uri(aws_config(), string()) -> string().
 %format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
 format_s3_uri(Config, Host) ->
-    S3Url = Config#aws_config.s3_scheme ++ Config#aws_config.s3_host ++ Config#aws_config.s3_port,
+    % leaving off explicitly adding port for now, as this seems to be done automagically?
+    %S3Url = Config#aws_config.s3_scheme ++ Config#aws_config.s3_host, % ++ ":" ++ integer_to_list(Config#aws_config.s3_port),
+    S3Url = Config#aws_config.s3_host,
     BAccessType = Config#aws_config.s3_bucket_access_method,
+io:format("~nformat_s3_uri: Host=~p S3Url=~p BAccessType=~p", [Host, S3Url, BAccessType]),
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
         http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
@@ -590,6 +597,8 @@ format_s3_uri(Config, Host) ->
     end.
 
 % NOTE: erlcloud doesn't have s3_url function
+% this appears to be a sigv2 "presigned" or "query string request" for enabling direct third-party browser access
+% to private Amazon S3 data without proxying the request. erlcloud does not have this capability at this time.
 
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
@@ -655,7 +664,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
                                   CanonicalizedResource
                                  ]),
-
+io:format("~nmake_signed_url_authorization: SecretKey=~p StringToSign=~p", [SecretKey, StringToSign]),
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
@@ -759,7 +768,7 @@ get_object_metadata(BucketName, Key, Options) ->
 %     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
 
 get_object_metadata(BucketName, Key, Options, Config) ->
-    io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, Config]),
+io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, Config]),
     erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
 extract_metadata(Headers) ->
