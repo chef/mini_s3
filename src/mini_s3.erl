@@ -78,8 +78,7 @@
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 
-%-include_lib("erlcloud/include/erlcoud_aws.hrl").
--include("../erlcloud/include/erlcoud_aws.hrl").
+-include("erlcloud_aws.hrl").
 
 %-export_type([config/0,
 -export_type([aws_config/0,
