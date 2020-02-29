@@ -90,8 +90,7 @@
               bucket_acl/0,
               location_constraint/0]).
 
-% mini_s3 config and erlcloud config differ,
-% but both are tuples/records.
+% mini_s3 config and erlcloud config differ, but both are tuples/records.
 % attempting to use aws_config record defined in erlcloud_aws.hrl.
 % substituting config for aws_config  defined in erlcloud_aws.hrl.
 %-opaque config() :: #config{}.
@@ -122,14 +121,18 @@
 
 % attempt to get s3 credentials into erlcloud
 start(normal, _) ->
+    Id =        os:getenv("aws_access_key_id",     "aws_access_key_id"    ),
+    Secret =    os:getenv("aws_secret_access_key", "aws_secret_access_key"),
+    Token =     os:getenv("aws_security_token",    "aws_security_token"   ),
+
     {ok, _} = application:ensure_all_started(erlcloud),
-    ok = application:set_env(erlcloud, aws_access_key_id,        os:getenv("aws_access_key_id",     "aws_access_key_id"    )),
-    ok = application:set_env(erlcloud, aws_secret_access_key,    os:getenv("aws_secret_access_key", "aws_secret_access_key")),
-    ok = application:set_env(erlcloud, aws_security_token,       os:getenv("aws_security_token",    "aws_security_token"   )),
+    ok = application:set_env(erlcloud, aws_access_key_id,        Id         ),
+    ok = application:set_env(erlcloud, aws_secret_access_key,    Secret     ),
+    ok = application:set_env(erlcloud, aws_security_token,       Token      ),
     ok = application:set_env(erlcloud, aws_region,               "us-east-1"),
 
     % output appears in logs 
-    io:format("~n~nMINI_S3 STARTING~n~n"),
+    io:format("~n~nMINI_S3 STARTING~n~p~n~p~n~p~n~n", [Id, Secret, Token]),
 
     {ok, self()}.
  
@@ -181,8 +184,6 @@ new(_AccessKeyID, _SecretAccessKey, Host) ->
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
 % mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
-% for now, converting a mini_s3 new/4 call to an erlcloud new/3,
-% and leaving off 4th argument
 
 %-spec new(string(), string(), string(), bucket_access_type()) -> config().
 -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
@@ -194,28 +195,32 @@ new(_AccessKeyID, _SecretAccessKey, Host) ->
 %     s3_url=Host,
 %     bucket_access_type=BucketAccessType}.
 
-new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType) ->
-    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
+    % convert mini_s3 config to erlcloud
+    BucketAccessMethod = case BucketAccessType of path -> path; _ -> vhost end,
+    Config = new(AccessKeyID, SecretAccessKey, Host),
+    Config#aws_config{
+        %access_key_id=AccessKeyID,
+        %secret_access_key=SecretAccessKey,
+        %s3_url=Host,
+        %ssl_options=SslOpts,
+        s3_bucket_access_method=BucketAccessMethod
+    }.
 
 %-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
 -spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 
 % erlcloud has no new/5. 
-% also, arguments differ.  erlcloud/4 expects accesskeyid, secretaccesskey, host, port)
-% for now, attempting conversion to new/3
+% also, arguments differ.  erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port)
+% erlcloud's signature is:
+%   new(AccessKeyID::string(), SecretAccessKey::string(), Host::string(), Port::non_neg_integer()) -> aws_config()
+% for now, attempting conversion to new/4
 %
 % this is called in oc_erchef app in:
 %   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 
-new(AccessKeyID, SecretAccessKey, Host, _BucketAccessType, _SslOpts) ->
-    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
-    % this was the function body (below)
-    %#config{
-    % access_key_id=AccessKeyID,
-    % secret_access_key=SecretAccessKey,
-    % s3_url=Host,
-    % bucket_access_type=BucketAccessType,
-    % ssl_options=SslOpts}.
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
+    new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
 %--------------------------------------------------------------------------
 
 
