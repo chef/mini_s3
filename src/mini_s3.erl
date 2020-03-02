@@ -152,7 +152,16 @@ new(AccessKeyID, SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(AccessKeyID, SecretAccessKey, Host) ->
-    erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host).
+    % chef-server crams scheme://host:port all into into host.  erlcloud wants them separate.
+    % this conversion assumes Host = scheme://host:port | scheme://host | host
+    case string:split(Host, ":", all) of
+        [Scheme, [_,_|Domain], Port] ->
+            (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, list_to_integer(Port)))#aws_config{s3_scheme=Scheme};
+        [Scheme, [_,_|Domain]] ->
+            (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain))#aws_config{s3_scheme=Scheme};
+        _ ->
+            erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host)
+    end.
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
 % mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
