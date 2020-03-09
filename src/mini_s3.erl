@@ -628,6 +628,13 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
+io:format("~n~n~p", [catch 'Elixir.ExAws.S3':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch       'Elixir.S3':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch        'ExAws.S3':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch              'S3':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch    'Elixir.ExAws':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch          'Elixir':list_objects("my-bucket")]),
+io:format("~n~n~p", [catch           'ExAws':list_objects("my-bucket")]),
 io:format("~n~nSIGV2 mini_s3:s3_url(~p, ~p, ~p, ~p, ~p, ~0p)", [Method, BucketName, Key, Lifetime, RawHeaders, Config]),
 
     Expires = erlang:integer_to_list(expiration_time(Lifetime)),
