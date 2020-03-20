@@ -842,7 +842,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
-                {base64:encode(crypto:hash(md5,PD)), CT, PD};
+                {base64:encode(erlang:md5(PD)), CT, PD};
             PD ->
                 %% On a put/post even with an empty body we need to
                 %% default to some content-type
