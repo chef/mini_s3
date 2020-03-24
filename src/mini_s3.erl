@@ -606,6 +606,7 @@ io:format("~n~nmini_s3:format_s3_uri: Config=~0p Host=~p Scheme=~p, S3Url=~p BAc
 % NOTE: erlcloud doesn't have s3_url function
 % this appears to be a sigv2 "presigned" or "query string request" for enabling direct third-party browser access
 % to private Amazon S3 data without proxying the request. erlcloud does not have this capability at this time.
+% converted to sigv4
 
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
@@ -628,8 +629,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
-    io:format("~n~nSIGV2 mini_s3:s3_url(~p, ~p, ~p, ~p, ~p, ~0p)", [Method, BucketName, Key, Lifetime, RawHeaders, Config]),
-    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
+    io:format("~n~ncalled mini_s3:s3_url(~p, ~p, ~p, ~p, ~p)", [Method, BucketName, Key, Lifetime, RawHeaders]),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 %
@@ -646,7 +647,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
 %                                   $&, "Expires=", Expires,
 %                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
 %                                  ]),
-io:format("~n~nSIGV2 mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
+io:format("~n~nfinished mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
 make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
