@@ -629,7 +629,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
-    io:format("~n~ncalled mini_s3:s3_url(~p, ~p, ~p, ~p, ~p)", [Method, BucketName, Key, Lifetime, RawHeaders]),
+    io:format("~n~nmini_s3 branch lbaker/presigned-headers~nin mini_s3:s3_url "
+        "method = ~p bucketname = ~p key = ~p, rawheaders = ~p", [Method, BucketName, Key, RawHeaders]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
