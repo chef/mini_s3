@@ -152,16 +152,19 @@ new(AccessKeyID, SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(AccessKeyID, SecretAccessKey, Host) ->
-    % chef-server crams scheme://host:port all into into host.  erlcloud wants them separate.
-    % this conversion assumes Host = scheme://host:port | scheme://host | host
-    % also, forces consistent usage of scheme and port (https=443, http=80)
+    % chef-server crams scheme://host:port all into into host; erlcloud wants them separate.
+    % Host = scheme://host:port | scheme://host | host
+    io:format("~n~nmini_s3:new~nhost = ~p~n", [Host]),
     case string:split(Host, ":", all) of
+        % Host = scheme://host:port | scheme://host
         [Scheme, [_,_|Domain] | _Port] ->
             New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain))#aws_config{s3_scheme=Scheme++"://"};
+        % Host = host
         _ ->
             Scheme = "https://",
             New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host))#aws_config{s3_scheme=Scheme}
     end,
+    % force consistent usage of scheme and port (https=443, http=80)
     case Scheme of
         [$h,$t,$t,$p,$s|_] -> New#aws_config{s3_port=443}; % https:// or https
         [$h,$t,$t,$p   |_] -> New#aws_config{s3_port=80}   % http://  or http
@@ -629,8 +632,9 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
-    io:format("~n~nmini_s3 branch lbaker/presigned-headers~ncalled mini_s3:s3_url(~p, ~p, ~p, ~p, ~p)", [Method, BucketName, Key, Lifetime, RawHeaders]),
-    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Config),
+    io:format("~n~nmini_s3 branch lbaker/presigned-headers-host~ncalled mini_s3:s3_url(~p, ~p, ~p, ~p, ~p)", [Method, BucketName, Key, Lifetime, RawHeaders]),
+    io:format("~nconfig port = ~p", [Config#aws_config.s3_port]),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], [{"host", BucketName ++ "." ++ Config#aws_config.s3_host ++ ":" ++ integer_to_list(Config#aws_config.s3_port)} | RawHeaders], Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 %
@@ -647,6 +651,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
 %                                   $&, "Expires=", Expires,
 %                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
 %                                  ]),
+io:format("~nusing host header in construction: ~p", [BucketName ++ "." ++ Config#aws_config.s3_host ++ ":" ++ integer_to_list(Config#aws_config.s3_port)]),
 io:format("~n~nfinished mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
