@@ -152,19 +152,25 @@ new(AccessKeyID, SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(AccessKeyID, SecretAccessKey, Host) ->
-    % chef-server crams scheme://host:port all into into host.  erlcloud wants them separate.
-    % this conversion assumes Host = scheme://host:port | scheme://host | host
-    % also, forces consistent usage of scheme and port (https=443, http=80)
+    % chef-server crams scheme://host:port all into into host; erlcloud wants them separate.
+    % Assume:
+    %   Host == scheme://host:port | scheme://host | host
+    %   scheme == http || https
+    %   port = 80 | 443
+    io:format("~n~nmini_s3:new~nhost = ~p~n", [Host]),
     case string:split(Host, ":", all) of
+        % Host == scheme://host:port | scheme://host
         [Scheme, [_,_|Domain] | _Port] ->
             New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain))#aws_config{s3_scheme=Scheme++"://"};
+        % Host == host
         _ ->
             Scheme = "https://",
             New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host))#aws_config{s3_scheme=Scheme}
     end,
+    % force consistent usage of scheme and port (https==443, http==80)
     case Scheme of
         [$h,$t,$t,$p,$s|_] -> New#aws_config{s3_port=443}; % https:// or https
-        [$h,$t,$t,$p   |_] -> New#aws_config{s3_port=80}   % http://  or http
+        [$h,$t,$t,$p   |_] -> New#aws_config{s3_port=80 }  % http://  or http
     end.
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
