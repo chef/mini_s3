@@ -139,6 +139,7 @@ manual_start() ->
 %     access_key_id=AccessKeyID,
 %     secret_access_key=SecretAccessKey}.
 
+% this results in an inconsistent s3_scheme/s3_port usage (see returned config)
 new(AccessKeyID, SecretAccessKey) ->
     erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
@@ -152,26 +153,39 @@ new(AccessKeyID, SecretAccessKey) ->
 %     s3_url=Host}.
 
 new(AccessKeyID, SecretAccessKey, Host) ->
-    % chef-server crams scheme://host:port all into into host; erlcloud wants them separate.
+    % chef-server crams scheme://host:port all into into Host; erlcloud wants them separate.
     % Assume:
-    %   Host == scheme://host:port | scheme://host | host
-    %   scheme == http || https
-    %   port = 80 | 443
-    io:format("~n~nmini_s3:new~nhost = ~p~n", [Host]),
+    %   Host   == scheme://domain:port | scheme://domain | domain:port | domain
+    %   scheme == http | https
+    %   port   == 80   | 443
     case string:split(Host, ":", all) of
-        % Host == scheme://host:port | scheme://host
-        [Scheme, [_,_|Domain] | _Port] ->
-            New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain))#aws_config{s3_scheme=Scheme++"://"};
-        % Host == host
-        _ ->
+        % Host == scheme://domain:port
+        [Scheme0, [$/, $/ | Domain] | [Port0]] ->
+            Scheme = Scheme0 ++ "://";
+        % Host == scheme://domain
+        [Scheme0, [$/, $/ | Domain]] ->
+            Scheme = Scheme0 ++ "://",
+            Port0  = undefined;
+        % Host == domain:port
+        [Domain, Port0] ->
+            % crash on anything other than 80 or 443
+            Scheme = case Port0 of "80" -> "http://"; "443" -> "https://" end;
+        % Host == domain
+        [Domain] ->
             Scheme = "https://",
-            New = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host))#aws_config{s3_scheme=Scheme}
+            Port0  = undefined
     end,
-    % force consistent usage of scheme and port (https==443, http==80)
-    case Scheme of
-        [$h,$t,$t,$p,$s|_] -> New#aws_config{s3_port=443}; % https:// or https
-        [$h,$t,$t,$p   |_] -> New#aws_config{s3_port=80 }  % http://  or http
-    end.
+    Port =
+        case Port0 of
+            undefined ->
+                case Scheme of
+                    "https://" -> 443;
+                    "http://"  -> 80
+                end;
+            _ ->
+                list_to_integer(Port0)
+        end,
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme}.
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
 % mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
@@ -187,6 +201,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 %     bucket_access_type=BucketAccessType}.
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
+io:format("~ncalling mini_s3:new/4 - is this ever used?"),
     % convert mini_s3 new/4 to erlcloud (set BucketAccessType)
     BucketAccessMethod = case BucketAccessType of path -> path; _ -> vhost end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
