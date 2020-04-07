@@ -19,6 +19,7 @@
 -module(mini_s3_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+-include("../src/erlcloud_aws.hrl").
 -include("../src/internal.hrl").
 
 format_s3_uri_test_() ->
@@ -128,3 +129,60 @@ s3_uri_test_() ->
             ],
 
     [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
+
+new_test() ->
+    % scheme://host:port
+    Config0 = mini_s3:new("key", "secret", "http://host:80"),
+    "http://" = Config0#aws_config.s3_scheme,
+    80 =  Config0#aws_config.s3_port,
+
+    Config1 = mini_s3:new("key", "secret", "https://host:80"),
+    "https://" = Config1#aws_config.s3_scheme,
+    80 =  Config1#aws_config.s3_port,
+
+    Config2 = mini_s3:new("key", "secret", "http://host:443"),
+    "http://" = Config2#aws_config.s3_scheme,
+    443 = Config2#aws_config.s3_port,
+
+    Config3 = mini_s3:new("key", "secret", "https://host:443"),
+    "https://" = Config3#aws_config.s3_scheme,
+    443 = Config3#aws_config.s3_port, 
+
+    Config4 = mini_s3:new("key", "secret", "https://host:23"),
+    "https://" = Config4#aws_config.s3_scheme,
+    23 =  Config4#aws_config.s3_port,
+
+    Config5 = mini_s3:new("key", "secret", "http://host:23"),
+    "http://" = Config5#aws_config.s3_scheme,
+    23 = Config5#aws_config.s3_port,
+
+
+    % scheme://host
+    Config6 = mini_s3:new("key", "secret", "https://host"),
+    "https://" = Config6#aws_config.s3_scheme,
+    443 = Config6#aws_config.s3_port,
+
+    Config7 = mini_s3:new("key", "secret", "http://host"),
+    "http://" = Config7#aws_config.s3_scheme,
+    80 = Config7#aws_config.s3_port,
+
+
+    % host:port
+    Config8 = mini_s3:new("key", "secret", "host:80"),
+    "http://" = Config8#aws_config.s3_scheme,
+    80 = Config8#aws_config.s3_port,
+
+    Config9 = mini_s3:new("key", "secret", "host:443"),
+    "https://" = Config9#aws_config.s3_scheme,
+    443 = Config9#aws_config.s3_port,
+
+    % this should fail - no scheme to assume
+    % or, could just assume https
+    %ConfigA = mini_s3:new("key", "secret", "host:23"),
+    %f(),
+
+
+    % host
+    ConfigB = mini_s3:new("key", "secret", "host"),
+    "https://" = ConfigB#aws_config.s3_scheme,
+    443 = ConfigB#aws_config.s3_port.
