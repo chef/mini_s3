@@ -61,6 +61,7 @@
          get_object_metadata/3,
          get_object_metadata/4,
          s3_url/6,
+         s3_url/7,
          put_object/5,
          put_object/6,
          set_object_acl/3,
@@ -647,16 +648,22 @@ io:format("~n~nmini_s3:format_s3_uri: Config=~0p Host=~p Scheme=~p, S3Url=~p BAc
 %%
 %% Consult the official documentation (linked above) if you wish to
 %% augment this function's capabilities.
+
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), aws_config()) -> binary().
 %             proplists:proplist(), config()) -> binary().
-s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config) ->
+    s3_url(Method, BucketName, Key, Lifetime, RawHeaders, undefined, Config).
+
+-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+             proplists:proplist(), string() | undefined, aws_config()) -> binary().
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
     io:format("~n~nmini_s3 branch lbaker/presigned-headers~nin mini_s3:s3_url "
-        "method = ~p bucketname = ~p key = ~p, rawheaders = ~p", [Method, BucketName, Key, RawHeaders]),
-    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Config),
+        "method = ~p bucketname = ~p key = ~p rawheaders = ~p date = ~p", [Method, BucketName, Key, RawHeaders, Date]),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 %
