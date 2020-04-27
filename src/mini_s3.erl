@@ -206,16 +206,19 @@ case Z#aws_config.s3_host of "api.chef-server.dev" -> Z#aws_config{s3_bucket_aft
 %     bucket_access_type=BucketAccessType}.
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-io:format("~ncalling mini_s3:new/4 - is this ever used?"),
-    % convert mini_s3 new/4 to erlcloud (set BucketAccessType)
-    BucketAccessMethod = case BucketAccessType of path -> path; _ -> vhost end,
+io:format("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)"),
+io:format("~nHost=~p", [Host]),
+io:format("~nBucketAccessType=~p", [BucketAccessType]),
+    % convert mini_s3 new/4 to erlcloud
+    {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
     Config#aws_config{
         %access_key_id=AccessKeyID,
         %secret_access_key=SecretAccessKey,
         %s3_url=Host,
         %ssl_options=SslOpts,
-        s3_bucket_access_method=BucketAccessMethod
+        s3_bucket_access_method=BucketAccessMethod,
+        s3_bucket_after_host=BucketAfterHost
     }.
 
 %-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
@@ -231,6 +234,7 @@ io:format("~ncalling mini_s3:new/4 - is this ever used?"),
 %   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
+    io:format("~nmini_s3:new/5 doesn't know what to do with SslOpts - dropping for now"),
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
 %--------------------------------------------------------------------------
 
