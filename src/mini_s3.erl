@@ -802,26 +802,30 @@ get_object_metadata(BucketName, Key, Options) ->
 
 %-spec get_object_metadata(string(), string(), proplists:proplist(), config()) -> proplists:proplist().
 %
-%get_object_metadata(BucketName, Key, Options, Config) ->
-%    RequestHeaders = [{"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
-%                      {"If-Unmodified-Since", proplists:get_value(if_unmodified_since, Options)},
-%                      {"If-Match", proplists:get_value(if_match, Options)},
-%                      {"If-None-Match", proplists:get_value(if_none_match, Options)}],
-%    Subresource = case proplists:get_value(version_id, Options) of
-%                      undefined -> "";
-%                      Version   -> ["versionId=", Version]
-%                  end,
-%    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
-%    [{last_modified, proplists:get_value("last-modified", Headers)},
-%     {etag, proplists:get_value("etag", Headers)},
-%     {content_length, proplists:get_value("content-length", Headers)},
-%     {content_type, proplists:get_value("content-type", Headers)},
-%     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-%     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
 
+% testing this code pursuant to investigation of pedant test 500s in checking file checksums
+% even if this works, will it break what was already working (retest pointing oc-erchef to s3 vs bookshelf)?
 get_object_metadata(BucketName, Key, Options, Config) ->
-io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
-    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
+io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
+    RequestHeaders = [{"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
+                      {"If-Unmodified-Since", proplists:get_value(if_unmodified_since, Options)},
+                      {"If-Match", proplists:get_value(if_match, Options)},
+                      {"If-None-Match", proplists:get_value(if_none_match, Options)}],
+    Subresource = case proplists:get_value(version_id, Options) of
+                      undefined -> "";
+                      Version   -> ["versionId=", Version]
+                  end,
+    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+    [{last_modified, proplists:get_value("last-modified", Headers)},
+     {etag, proplists:get_value("etag", Headers)},
+     {content_length, proplists:get_value("content-length", Headers)},
+     {content_type, proplists:get_value("content-type", Headers)},
+     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
+     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
+
+%get_object_metadata(BucketName, Key, Options, Config) ->
+%io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
+%    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
