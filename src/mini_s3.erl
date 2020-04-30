@@ -667,7 +667,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
     io:format("~n~nmini_s3 branch lbaker/presigned-headers~nin mini_s3:s3_url "
         "method = ~p bucketname = ~p key = ~p rawheaders = ~p date = ~p", [Method, BucketName, Key, RawHeaders, Date]),
-    RequestURI = erlcloud_s3:make_presigned_v4_url(99999, BucketName, Method, Key, [], RawHeaders, Date, Config),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
 %
