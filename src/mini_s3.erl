@@ -794,7 +794,8 @@ get_object_acl(BucketName, Key, Options, Config) ->
 
 
 % erlcloud get_object_metadata/3 only supports passing a bucketname, key, and config.
-% converting to 4 parameter version.
+% converting to 4 parameter version and using default config.
+% is default config even useful at all, or will it just produce errors?
 get_object_metadata(BucketName, Key, Options) ->
     io:format("~n~nmini_s3:get_object_metadata(~p, ~p, ~p, ~0p)", [BucketName, Key, Options, "default_config()"]),
     erlcloud_s3:get_object_metadata(BucketName, Key, Options, default_config()).
