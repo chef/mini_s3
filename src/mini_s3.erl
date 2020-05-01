@@ -656,16 +656,25 @@ io:format("~n~nmini_s3:format_s3_uri: Config=~0p Host=~p Scheme=~p, S3Url=~p BAc
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), aws_config()) -> binary().
 %             proplists:proplist(), config()) -> binary().
-s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Config) ->
-    s3_url(Method, BucketName, Key, Lifetime, RawHeaders, undefined, Config).
+s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
+       Config = #aws_config{access_key_id=AccessKey,
+                        secret_access_key=SecretKey})
+  when is_list(BucketName), is_list(Key), is_tuple(Config) ->
+    io:format("~n~n----------------------------------------"),
+    io:format("~nmini_s3:s3_url/6"
+        "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p", [Method, BucketName, Key, Lifetime, RawHeaders]),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
+    io:format("~n~nfinished mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
+    iolist_to_binary(RequestURI).
 
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
-             proplists:proplist(), string() | undefined, aws_config()) -> binary().
+             proplists:proplist(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
-    io:format("~n~nmini_s3:s3_url lbaker/presigned-headers ----------------------"
+    io:format("~n~n----------------------------------------"),
+    io:format("~nmini_s3:s3_url/7"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName, Key, Lifetime, RawHeaders, Date]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
@@ -805,8 +814,13 @@ get_object_metadata(BucketName, Key, Options) ->
 
 % testing this code pursuant to investigation of pedant test 500s in checking file checksums
 % even if this works, will it break what was already working (retest pointing oc-erchef to s3 vs bookshelf)?
+
+% LATEST: erlcloud_s3:get_object_metata seems to already extract and return the headers below;
+% no need to do it
 get_object_metadata(BucketName, Key, Options, Config) ->
-io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
+%io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
+io:format("~n----------------------------"),
+io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
     RequestHeaders = [{"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
                       {"If-Unmodified-Since", proplists:get_value(if_unmodified_since, Options)},
                       {"If-Match", proplists:get_value(if_match, Options)},
@@ -815,7 +829,12 @@ io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p
                       undefined -> "";
                       Version   -> ["versionId=", Version]
                   end,
-    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+io:format("~nsubresource: ~p", [Subresource]),
+Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options ++ RequestHeaders, Config),
+io:format("~nreturn value from get_object_metadata: ~p", [Z]),
+io:format("~n----------------------------"),
+%    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+{Headers, _Body} = Z,
     [{last_modified, proplists:get_value("last-modified", Headers)},
      {etag, proplists:get_value("etag", Headers)},
      {content_length, proplists:get_value("content-length", Headers)},
