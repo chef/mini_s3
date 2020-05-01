@@ -665,8 +665,8 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
-    io:format("~n~nmini_s3 branch lbaker/presigned-headers~nin mini_s3:s3_url "
-        "method = ~p bucketname = ~p key = ~p rawheaders = ~p date = ~p", [Method, BucketName, Key, RawHeaders, Date]),
+    io:format("~n~nmini_s3:s3_url lbaker/presigned-headers ----------------------"
+        "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName, Key, Lifetime, RawHeaders, Date]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
@@ -1096,7 +1096,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
                             ssl_options=SslOpts},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-io:format("~nmini_s3:s3_request"),
+io:format("~nmini_s3:s3_request -----------------"),
 io:format("~nMethod: ~p",       [Method]),
 io:format("~nHost: ~p",         [Host]),
 io:format("~nPath: ~p",         [Path]),
@@ -1174,7 +1174,7 @@ RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
                    _ ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
                end,
-io:format("~nmini_s3:s3_request END"),
+io:format("~nmini_s3:s3_request END ------------------"),
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
             ResponseHeaders = canonicalize_headers(ResponseHeaders0),
