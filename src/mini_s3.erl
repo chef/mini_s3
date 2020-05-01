@@ -1096,6 +1096,14 @@ s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
                             ssl_options=SslOpts},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+io:format("~nmini_s3:s3_request"),
+io:format("~nMethod: ~p",       [Method]),
+io:format("~nHost: ~p",         [Host]),
+io:format("~nPath: ~p",         [Path]),
+io:format("~nSubresource: ~p",  [Subresource]),
+io:format("~nParams: ~p",       [Params]),
+io:format("~nPOSTData: ~p",     [POSTData]),
+io:format("~nHeaders: ~p",      [Headers]),
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
@@ -1116,13 +1124,14 @@ s3_request(Config = #config{access_key_id=AccessKey,
                               end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = ms3_http:url_encode_loose(Path),
-    {_StringToSign, Authorization} =
-        make_authorization(AccessKey, SecretKey, Method,
-                           ContentMD5, ContentType,
-                           Date, AmzHeaders, Host,
-                           EscapedPath, Subresource),
+%    {_StringToSign, Authorization} =
+%        make_authorization(AccessKey, SecretKey, Method,
+%                           ContentMD5, ContentType,
+%                           Date, AmzHeaders, Host,
+%                           EscapedPath, Subresource),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders0 = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
+%    RequestHeaders0 = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
+RequestHeaders0 = FHeaders ++
         case ContentMD5 of
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
@@ -1133,15 +1142,22 @@ s3_request(Config = #config{access_key_id=AccessKey,
                           false ->
                               [{"Content-Type", ContentType} | RequestHeaders0]
                       end,
-    RequestURI = lists:flatten([format_s3_uri(Config, Host),
-                                EscapedPath,
-                                if_not_empty(Subresource, [$?, Subresource]),
-                                if
-                                    Params =:= [] -> "";
-                                    Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
-                                    true -> [$&, ms3_http:make_query_string(Params)]
-                                end]),
+%    RequestURI = lists:flatten([format_s3_uri(Config, Host),
+%                                EscapedPath,
+%                                if_not_empty(Subresource, [$?, Subresource]),
+%                                if
+%                                    Params =:= [] -> "";
+%                                    Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
+%                                    true -> [$&, ms3_http:make_query_string(Params)]
+%                                end]),
     IbrowseOpts = [ {ssl_options, SslOpts} ],
+%{Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
+[$/ | Key] = Path,
+Lifetime = 300,
+io:format("~nKey: ~p",              [Key]),
+io:format("~nRequestHeaders1: ~p",  [RequestHeaders1]),
+io:format("~nDate: ~p",             [Date]),
+RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
     Response = case Method of
                    get ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
@@ -1158,6 +1174,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
                    _ ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
                end,
+io:format("~nmini_s3:s3_request END"),
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
             ResponseHeaders = canonicalize_headers(ResponseHeaders0),
