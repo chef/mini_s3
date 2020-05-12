@@ -815,9 +815,13 @@ get_object_acl(BucketName, Key, Options, Config) ->
 
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 
-get_object_metadata(BucketName, Key, Options, Config) ->
+get_object_metadata(BucketName, Key, Options0, Config) ->
     io:format("~nmini_s3:get_object_metadata/4"),
-    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
+    % TODO: do a search first to make sure this header isn't there before adding (proplists:get_value)
+    Options = [{"x-amz-content-sha256", "UNSIGNED-PAYLOAD"}, {"content-length", "0"}, {"x-amz-decoded-content-length", "0"} | Options0],
+    Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config),
+    io:format("~nmini_s3:get_object_metadata/4 result = ~p", [Z]),
+    Z.
 %io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
 %io:format("~n----------------------------"),
 %io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
