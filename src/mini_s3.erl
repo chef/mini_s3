@@ -69,7 +69,7 @@
 
 -export([manual_start/0,
          make_authorization/10,
-         make_signed_url_authorization/5,
+         %make_signed_url_authorization/5,
          universaltime/0]).
 
 -ifdef(TEST).
@@ -698,30 +698,30 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
 io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
-make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
-                              Expires, RawHeaders) ->
-    Headers = canonicalize_headers(RawHeaders),
-
-    HttpMethod = string:to_upper(atom_to_list(Method)),
-
-    ContentType = retrieve_header_value("content-type", Headers),
-    ContentMD5 = retrieve_header_value("content-md5", Headers),
-
-    %% We don't currently use this, but I'm adding a placeholder for future enhancements See
-    %% the URL in the docstring for details
-    CanonicalizedAMZHeaders = "",
-
-
-    StringToSign = lists:flatten([HttpMethod, $\n,
-                                  ContentMD5, $\n,
-                                  ContentType, $\n,
-                                  Expires, $\n,
-                                  CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
-                                  CanonicalizedResource
-                                 ]),
-io:format("~n~nmini_s3:make_signed_url_authorization: SecretKey=~p StringToSign=~0p", [SecretKey, StringToSign]),
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
-    {StringToSign, Signature}.
+%make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
+%                              Expires, RawHeaders) ->
+%    Headers = canonicalize_headers(RawHeaders),
+%
+%    HttpMethod = string:to_upper(atom_to_list(Method)),
+%
+%    ContentType = retrieve_header_value("content-type", Headers),
+%    ContentMD5 = retrieve_header_value("content-md5", Headers),
+%
+%    %% We don't currently use this, but I'm adding a placeholder for future enhancements See
+%    %% the URL in the docstring for details
+%    CanonicalizedAMZHeaders = "",
+%
+%
+%    StringToSign = lists:flatten([HttpMethod, $\n,
+%                                  ContentMD5, $\n,
+%                                  ContentType, $\n,
+%                                  Expires, $\n,
+%                                  CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
+%                                  CanonicalizedResource
+%                                 ]),
+%io:format("~n~nmini_s3:make_signed_url_authorization: SecretKey=~p StringToSign=~0p", [SecretKey, StringToSign]),
+%    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+%    {StringToSign, Signature}.
 
 
 %-spec get_object(string(), string(), proplists:proplist()) ->
