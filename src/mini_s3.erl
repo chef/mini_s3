@@ -93,7 +93,8 @@
 % substituting config for aws_config  defined in erlcloud_aws.hrl.
 %-opaque config() :: #config{}.
 
--type bucket_access_type() :: virtual_domain | path.
+%-type bucket_access_type() :: virtual_domain | path.
+-type bucket_access_type() :: vhost | path.
 
 -type bucket_attribute_name() :: acl
                                | location
