@@ -1178,7 +1178,7 @@ RequestHeaders0 = FHeaders ++
     IbrowseOpts = [ {ssl_options, SslOpts} ],
 %{Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
 [$/ | Key] = Path,
-Lifetime = 300,
+Lifetime = 900,
 io:format("~nKey: ~p",              [Key]),
 io:format("~nRequestHeaders1: ~p",  [RequestHeaders1]),
 io:format("~nDate: ~p",             [Date]),
