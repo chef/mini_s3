@@ -677,7 +677,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
     io:format("~n~n----------------------------------------"),
-    io:format("~nmini_s3:s3_url/7 (is this ever used?)"
+    io:format("~nmini_s3:s3_url/7 (is this ever used? no, it appears s3_url/6 is used?)"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName, Key, Lifetime, RawHeaders, Date]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
