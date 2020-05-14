@@ -666,7 +666,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders,
     io:format("~nmini_s3:s3_url/6"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p", [Method, BucketName, Key, Lifetime, RawHeaders]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
-    io:format("~n~nfinished mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
+    io:format("~n~nfinished mini_s3:s3_url/6 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
@@ -676,7 +676,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
                         secret_access_key=SecretKey})
   when is_list(BucketName), is_list(Key), is_tuple(Config) ->
     io:format("~n~n----------------------------------------"),
-    io:format("~nmini_s3:s3_url/7"
+    io:format("~nmini_s3:s3_url/7 (is this ever used?)"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName, Key, Lifetime, RawHeaders, Date]),
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
@@ -695,7 +695,7 @@ s3_url(Method, BucketName, Key, Lifetime, RawHeaders, Date,
 %                                   $&, "Expires=", Expires,
 %                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
 %                                  ]),
-io:format("~n~nfinished mini_s3:s3_url COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
+io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
 make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
