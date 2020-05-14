@@ -27,7 +27,7 @@
 -compile([export_all, nowarn_export_all]).
 %%%%%%%%%
 
--export([new/2,
+-export([%new/2,
          new/3,
          new/4,
          new/5,
@@ -133,7 +133,7 @@ manual_start() ->
 % temporarily HACKED to pass back custom hardcoded authentication keys
 
 %-spec new(string(), string()) -> config().
--spec new(string(), string()) -> aws_config().
+%-spec new(string(), string()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey) ->
 %    #config{
@@ -141,8 +141,8 @@ manual_start() ->
 %     secret_access_key=SecretAccessKey}.
 
 % this results in an inconsistent s3_scheme/s3_port usage (see returned config)
-new(AccessKeyID, SecretAccessKey) ->
-    erlcloud_s3:new(AccessKeyID, SecretAccessKey).
+%new(AccessKeyID, SecretAccessKey) ->
+%    erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
 %-spec new(string(), string(), string()) -> config().
 -spec new(string(), string(), string()) -> aws_config().
