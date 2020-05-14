@@ -186,11 +186,12 @@ new(AccessKeyID, SecretAccessKey, Host) ->
             _ ->
                 list_to_integer(Port0)
         end,
-    Z = (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme},
-%% HACK!! PROBABLY NOT FOR PRODUCTION!!
-%% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf...
-%% s3 wants bucketname before host (or it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443...
-case Z#aws_config.s3_host of "api.chef-server.dev" -> Z#aws_config{s3_bucket_after_host=true}; _ -> Z end.
+    %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf...
+    %% s3 wants bucketname before host (or it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443...
+    %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style
+    %% requests will continue to be supported for buckets created on or before this date."
+    %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
 % mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
