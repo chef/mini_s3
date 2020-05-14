@@ -236,6 +236,7 @@ io:format("~nBucketAccessType=~p", [BucketAccessType]),
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     io:format("~nmini_s3:new/5 doesn't know what to do with SslOpts - dropping for now"),
+    io:format("~nmini_s3:new/5 - SslOpts = ~p", [_SslOpts]),
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
 %--------------------------------------------------------------------------
 
