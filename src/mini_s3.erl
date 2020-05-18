@@ -60,6 +60,8 @@
          get_object_torrent/3,
          %get_object_metadata/3,
          get_object_metadata/4,
+         get_url/1,
+         get_url_port/1,
          s3_url/6,
          s3_url/7,
          put_object/5,
@@ -907,6 +909,16 @@ list_object_versions(BucketName, Options) ->
 %                  {versions, "Version", fun extract_versions/1},
 %                  {delete_markers, "DeleteMarker", fun extract_delete_markers/1}],
 %    ms3_xml:decode(Attributes, Doc).
+
+-spec get_url(aws_config()) -> string().
+get_url(Config) ->
+    UrlRaw = get_url_port(Config),
+    string:trim(UrlRaw, trailing, ":1234568790").
+
+-spec get_url_port(aws_config()) -> string().
+get_url_port(Config) ->
+    UrlRaw = erlcloud_s3:get_object_url("", "", Config),
+    string:trim(UrlRaw, trailing, "/").
 
 list_object_versions(BucketName, Options, Config) ->
     io:format("~n~nmini_s3:list_object_versions(~p, ~p, ~0p)", [BucketName, Options, config]),
