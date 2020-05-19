@@ -186,3 +186,18 @@ new_test() ->
     ConfigB = mini_s3:new("key", "secret", "host"),
     "https://" = ConfigB#aws_config.s3_scheme,
     443 = ConfigB#aws_config.s3_port.
+
+% construct url from config
+get_url_test() ->
+    Config0 = mini_s3:new("", "", "http://1.2.3.4"),
+    "http://1.2.3.4"      = get_url_noport(Config0),
+    "http://1.2.3.4:80"   = get_url_port(  Config0),
+    Config1 = mini_s3:new("", "", "https://1.2.3.4"),
+    "https://1.2.3.4"     = get_url_noport(Config1),
+    "https://1.2.3.4:443" = get_url_port(  Config1),
+    Config2 = mini_s3:new("", "", "http://1.2.3.4:443"),
+    "http://1.2.3.4"      = get_url_noport(Config2),
+    "http://1.2.3.4:443"  = get_url_port(  Config2),
+    Config3 = mini_s3:new("", "", "https://1.2.3.4:80"),
+    "https://1.2.3.4"     = get_url_noport(Config3),
+    "https://1.2.3.4:80"  = get_url_port(  Config3).

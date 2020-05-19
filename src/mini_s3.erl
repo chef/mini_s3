@@ -920,8 +920,21 @@ get_url_noport(Config) ->
 % construct url (scheme://host:port) from config
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
-    UrlRaw = erlcloud_s3:get_object_url("", "", Config),
-    string:trim(UrlRaw, trailing, "/").
+    Url0 = erlcloud_s3:get_object_url("", "", Config),
+    Url1 = string:trim(Url0, trailing, "/"),
+    case Config#aws_config.s3_port of
+        80 ->
+            % won't contain port if port == 80
+            Url1 ++ ":80";
+        _ ->
+            Url1
+    end.
+%    case string:split(Url1, ":", all) of
+%        [_scheme, _host, _port] ->
+%            Url1;
+%        [_scheme, _host] ->
+%            Url1 ++ ":80"
+%    end.
 
 list_object_versions(BucketName, Options, Config) ->
     io:format("~n~nmini_s3:list_object_versions(~p, ~p, ~0p)", [BucketName, Options, config]),
