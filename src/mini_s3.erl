@@ -60,7 +60,7 @@
          get_object_torrent/3,
          %get_object_metadata/3,
          get_object_metadata/4,
-         get_url/1,
+         get_url_noport/1,
          get_url_port/1,
          s3_url/6,
          s3_url/7,
@@ -910,11 +910,14 @@ list_object_versions(BucketName, Options) ->
 %                  {delete_markers, "DeleteMarker", fun extract_delete_markers/1}],
 %    ms3_xml:decode(Attributes, Doc).
 
--spec get_url(aws_config()) -> string().
-get_url(Config) ->
-    UrlRaw = get_url_port(Config),
-    string:trim(UrlRaw, trailing, ":1234568790").
+% construct url (scheme://host) from config
+-spec get_url_noport(aws_config()) -> string().
+get_url_noport(Config) ->
+    UrlRaw  = get_url_port(Config),
+    UrlTemp = string:trim(UrlRaw, trailing, "1234568790"),
+    string:trim(UrlTemp, trailing, ":").
 
+% construct url (scheme://host:port) from config
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
     UrlRaw = erlcloud_s3:get_object_url("", "", Config),
