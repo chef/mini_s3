@@ -37,7 +37,7 @@
          delete_bucket/2,
          get_bucket_attribute/2,
          get_bucket_attribute/3,
-         list_buckets/0,
+         %list_buckets/0,
          list_buckets/1,
          set_bucket_attribute/3,
          set_bucket_attribute/4,
@@ -404,9 +404,9 @@ delete_object_version(BucketName, Key, Version, Config) ->
 %list_buckets() ->
 %    list_buckets(default_config()).
 
-list_buckets() ->
-    io:format("~n~nmini_s3:list_buckets()"),
-    erlcloud_s3:list_buckets().
+%list_buckets() ->
+%    io:format("~n~nmini_s3:list_buckets()"),
+%    erlcloud_s3:list_buckets().
 
 %-spec list_buckets(config()) -> proplists:proplist().
 -spec list_buckets(aws_config()) -> proplists:proplist().
@@ -419,7 +419,8 @@ list_buckets() ->
 
 list_buckets(Config) ->
     io:format("~n~nmini_s3:list_buckets(~0p)", [config]),
-    erlcloud_s3:list_buckets(Config).
+    Result = erlcloud_s3:list_buckets(Config),
+    case proplists:lookup(buckets, Result) of none -> [{buckets, []}]; X -> [X] end.
 
 %-spec list_objects(string(), proplists:proplist()) -> proplists:proplist().
 %
