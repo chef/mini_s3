@@ -455,10 +455,12 @@ list_objects(BucketName, Options) ->
 list_objects(BucketName, Options, Config) ->
     %io:format("~n~nmini_s3:list_objects(~p, ~p, ~0p)", [BucketName, Options, config]),
     % wip attempt to fix ct tests
-    List = erlcloud_s3:list_objects(BucketName, Options, Config),
-    ?debugFmt("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List]),
-    http_uri:decode(List),
-    ?debugFmt("~ndecoded List: ~p", [http_uri:decode(List)]).
+    List0 = erlcloud_s3:list_objects(BucketName, Options, Config),
+    ?debugFmt("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List0]),
+    [{name, Name} | Rest] = List0,
+    List1 = [{name, http_uri:decode(Name)} | Rest],
+    ?debugFmt("~ndecoded List: ~p", [List1]),
+    List1.
 
 extract_contents(Nodes) ->
     Attributes = [{key, "Key", text},
