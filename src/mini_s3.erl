@@ -76,8 +76,9 @@
 
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
--include_lib("eunit/include/eunit.hrl").
+%-include_lib("eunit/include/eunit.hrl").
 -endif.
+-include_lib("eunit/include/eunit.hrl").
 
 -include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
@@ -452,8 +453,12 @@ list_objects(BucketName, Options) ->
 %    ms3_xml:decode(Attributes, Doc).
 
 list_objects(BucketName, Options, Config) ->
-    io:format("~n~nmini_s3:list_objects(~p, ~p, ~0p)", [BucketName, Options, config]),
-    erlcloud_s3:list_objects(BucketName, Options, Config).
+    %io:format("~n~nmini_s3:list_objects(~p, ~p, ~0p)", [BucketName, Options, config]),
+    % wip attempt to fix ct tests
+    List = erlcloud_s3:list_objects(BucketName, Options, Config),
+    ?debugFmt("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List]),
+    http_uri:decode(List),
+    ?debugFmt("~ndecoded List: ~p", [http_uri:decode(List)]).
 
 extract_contents(Nodes) ->
     Attributes = [{key, "Key", text},
