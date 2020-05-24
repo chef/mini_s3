@@ -743,6 +743,7 @@ io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [Reque
 %get_object(BucketName, Key, Options) ->
 %    get_object(BucketName, Key, Options, default_config()).
 
+% not sure if this is used? probably would need to redirect to the one with a config
 get_object(BucketName, Key, Options) ->
     io:format("~n~nmini_s3:get_object(~p, ~p, ~p)", [BucketName, Key, Options]),
     erlcloud_s3:get_object(BucketName, Key, Options).
