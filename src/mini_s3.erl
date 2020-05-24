@@ -987,6 +987,7 @@ extract_bucket(Node) ->
 %put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    put_object(BucketName, Key, Value, Options, HTTPHeaders, default_config()).
 
+% dunno if this is used or not
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     io:format("~n~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p)", [BucketName, Key, Value, Options, HTTPHeaders]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
@@ -1013,7 +1014,7 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
-    io:format("~n~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, Value, Options, HTTPHeaders, config]),
+    ?debugFmt("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, Value, Options, HTTPHeaders, config]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
 %-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
