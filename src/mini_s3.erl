@@ -1015,7 +1015,7 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
-    ?debugFmt("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, Value, Options, HTTPHeaders, config]),
+    ?debugFmt("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, "truncated", Options, HTTPHeaders, config]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
 %-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
