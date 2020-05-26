@@ -4,5 +4,5 @@
   0},
  {<<"ibrowse">>,
   {git,"git://github.com/cmullaparthi/ibrowse.git",
-       {ref,"c97136cfb61fcc6f39d4e7da47372a64f7fca04e"}},
+       {ref,"e6a0c366fc8fc982d7981087c1e9d1e28e2a235a"}},
   0}].
