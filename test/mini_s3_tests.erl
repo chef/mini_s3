@@ -176,16 +176,15 @@ new_test() ->
     "https://" = Config9#aws_config.s3_scheme,
     443 = Config9#aws_config.s3_port,
 
-    % this should fail - no scheme to assume
-    % or, could just assume https
-    %ConfigA = mini_s3:new("key", "secret", "host:23"),
-    %f(),
+    ConfigA = mini_s3:new("key", "secret", "host:23"),
+    "http://" = ConfigA#aws_config.s3_scheme,
+    23 = Config9#aws_config.s3_port,
 
 
     % host
     ConfigB = mini_s3:new("key", "secret", "host"),
-    "https://" = ConfigB#aws_config.s3_scheme,
-    443 = ConfigB#aws_config.s3_port.
+    "http://" = ConfigB#aws_config.s3_scheme,
+    80 = ConfigB#aws_config.s3_port.
 
 % construct url from config
 get_url_test() ->
