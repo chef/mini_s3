@@ -162,7 +162,6 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     % Assume:
     %   Host   == scheme://domain:port | scheme://domain | domain:port | domain
     %   scheme == http | https
-    %   port   == 80   | 443
     case string:split(Host, ":", all) of
         % Host == scheme://domain:port
         [Scheme0, [$/, $/ | Domain] | [Port0]] ->
@@ -173,8 +172,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
             Port0  = undefined;
         % Host == domain:port
         [Domain, Port0] ->
-            % crash on anything other than 80 or 443
-            Scheme = case Port0 of "80" -> "http://"; "443" -> "https://" end;
+            Scheme = case Port0 of "443" -> "https://"; _ -> "http://" end;
         % Host == domain
         [Domain] ->
             Scheme = "https://",
@@ -185,7 +183,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
             undefined ->
                 case Scheme of
                     "https://" -> 443;
-                    "http://"  -> 80
+                    _          -> 80
                 end;
             _ ->
                 list_to_integer(Port0)
