@@ -25,6 +25,7 @@
          new/3,
          new/4,
          new/5,
+         new/6,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
@@ -148,7 +149,16 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts) ->
      bucket_access_type=BucketAccessType,
      ssl_options=SslOpts}.
 
-
+-spec new(string(), string(), string(), bucket_access_type(),
+          proplists:proplist(), proplists:proplist()) -> config().
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, IbrowseOpts) ->
+    #config{
+     access_key_id=AccessKeyID,
+     secret_access_key=SecretAccessKey,
+     s3_url=Host,
+     bucket_access_type=BucketAccessType,
+     ssl_options=SslOpts,
+     ibrowse_options=IbrowseOpts}.
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
@@ -837,7 +847,8 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
 
 s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
-                            ssl_options=SslOpts},
+                            ssl_options=SslOpts,
+                            ibrowse_options=IbrowseOpts},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
@@ -884,7 +895,7 @@ s3_request(Config = #config{access_key_id=AccessKey,
                                     Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
                                     true -> [$&, ms3_http:make_query_string(Params)]
                                 end]),
-    IbrowseOpts = [ {ssl_options, SslOpts} ],
+    IbrowseOpts1 = [ {ssl_options, SslOpts} | IbrowseOpts ],
     Response = case Method of
                    get ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
@@ -895,11 +906,11 @@ s3_request(Config = #config{access_key_id=AccessKey,
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
-                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
+                       IbrowseOpts2 = [{http_vsn, {1, 0}} | IbrowseOpts1],
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        IbrowseOpts1);
+                                        IbrowseOpts2);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts1)
                end,
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->

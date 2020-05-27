@@ -23,4 +23,5 @@
           access_key_id::string(),
           secret_access_key::string(),
           bucket_access_type=virtual_hosted::mini_s3:bucket_access_type(),
-          ssl_options=[]::proplists:proplist()}).
+          ssl_options=[]::proplists:proplist(),
+          ibrowse_options=[]::proplists:proplist()}).
