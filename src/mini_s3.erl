@@ -674,7 +674,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
     io:format("~n~n----------------------------------------"),
     io:format("~nmini_s3:s3_url/6"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p", [Method, BucketName0, Key0, Lifetime, RawHeaders]),
-    [BucketName, Key] = [ms3_http:url_encode_loose(X)|| X <- [BucketName0, Key0]],
+    [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
     io:format("~n~nfinished mini_s3:s3_url/6 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
@@ -688,7 +688,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
     io:format("~n~n----------------------------------------"),
     io:format("~nmini_s3:s3_url/7 (is this ever used? no, it appears s3_url/6 is used?)"
         "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName0, Key0, Lifetime, RawHeaders, Date]),
-    [BucketName, Key] = [ms3_http:url_encode_loose(X)|| X <- [BucketName0, Key0]],
+    [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
 %    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
