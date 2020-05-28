@@ -193,6 +193,9 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style
     %% requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
+
+    %% should we url-encode Domain (using ms3_http:url_encode_loose) ?
+    %% erlcloud seems to url-encode paths before sending requests
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 % erlcloud wants accesskey, secretaccesskey, host, port.
