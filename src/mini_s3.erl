@@ -212,9 +212,9 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 %     bucket_access_type=BucketAccessType}.
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-io:format("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)"),
-io:format("~nHost=~p", [Host]),
-io:format("~nBucketAccessType=~p", [BucketAccessType]),
+?debugFmt("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)", []),
+?debugFmt("~nHost=~p", [Host]),
+?debugFmt("~nBucketAccessType=~p", [BucketAccessType]),
     % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
