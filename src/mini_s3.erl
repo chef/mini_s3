@@ -335,6 +335,7 @@ encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 %delete_bucket(BucketName) ->
 %    delete_bucket(BucketName, default_config()).
 
+% is this used?
 delete_bucket(BucketName) ->
     io:format("~n~nmini_s3:delete_bucket(~p)", [BucketName]),
     erlcloud_s3:delete_bucket(BucketName).
@@ -744,7 +745,7 @@ io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [Reque
 %get_object(BucketName, Key, Options) ->
 %    get_object(BucketName, Key, Options, default_config()).
 
-% not sure if this is used? probably would need to redirect to the one with a config
+% not sure if this is used? probably would need to redirect to the one with a config and use a default config.
 get_object(BucketName, Key, Options) ->
     io:format("~n~nmini_s3:get_object(~p, ~p, ~p)", [BucketName, Key, Options]),
     erlcloud_s3:get_object(BucketName, Key, Options).
@@ -989,7 +990,7 @@ extract_bucket(Node) ->
 %put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    put_object(BucketName, Key, Value, Options, HTTPHeaders, default_config()).
 
-% dunno if this is used or not
+% dunno if this is used or not (no Config)
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     io:format("~n~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p)", [BucketName, Key, Value, Options, HTTPHeaders]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
