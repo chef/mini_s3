@@ -933,8 +933,15 @@ get_url_noport(Config) ->
 % construct url (scheme://host:port) from config
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
+?debugFmt("~nin get_url_port", []),
+?debugFmt("~nin get_url_port", []),
+?debugFmt("~nin get_url_port", []),
+?debugFmt("~nin get_url_port", []),
+?debugFmt("~nin get_url_port", []),
     Url0 = erlcloud_s3:get_object_url("", "", Config),
+?debugFmt("~nfinished erlcloud_s3:get_object_url", []),
     Url1 = string:trim(Url0, trailing, "/"),
+?debugFmt("~nfinished string:trim", []),
     case Config#aws_config.s3_port of
         80 ->
             % won't contain port if port == 80
