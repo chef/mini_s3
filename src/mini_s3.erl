@@ -60,6 +60,7 @@
          get_object_torrent/3,
          %get_object_metadata/3,
          get_object_metadata/4,
+         get_host_toggleport/2,
          get_url_noport/1,
          get_url_port/1,
          s3_url/6,
@@ -172,7 +173,8 @@ new(AccessKeyID, SecretAccessKey, Host) ->
             Port0  = undefined;
         % Host == domain:port
         [Domain, Port0] ->
-            Scheme = case Port0 of "443" -> "https://"; _ -> "http://" end;
+            %Scheme = case Port0 of "443" -> "https://"; _ -> "http://" end;
+            Scheme = case Port0 of "80" -> "http://"; _ -> "https://" end;
         % Host == domain
         [Domain] ->
             Scheme = "https://",
@@ -183,7 +185,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
             undefined ->
                 case Scheme of
                     "https://" -> 443;
-                    _          -> 80
+                    "http://"  -> 80
                 end;
             _ ->
                 list_to_integer(Port0)
@@ -922,6 +924,23 @@ list_object_versions(BucketName, Options) ->
 %                  {versions, "Version", fun extract_versions/1},
 %                  {delete_markers, "DeleteMarker", fun extract_delete_markers/1}],
 %    ms3_xml:decode(Attributes, Doc).
+
+% toggle port on host header (add port or remove it)
+-spec get_host_toggleport(string(), aws_config()) -> string().
+get_host_toggleport(Host, Config) ->
+    case string:split(Host, ":", trailing) of
+        [Host] ->
+            Port = integer_to_list(Config#aws_config.s3_port),
+            string:join([Host, Port], ":");
+        ["http", _] ->
+            Port = integer_to_list(Config#aws_config.s3_port),
+            string:join([Host, Port], ":");
+        ["https", _] ->
+            Port = integer_to_list(Config#aws_config.s3_port),
+            string:join([Host, Port], ":");
+        [H, _] ->
+            H
+    end.
 
 % construct url (scheme://host) from config
 -spec get_url_noport(aws_config()) -> string().
