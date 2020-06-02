@@ -177,14 +177,27 @@ new_test() ->
     443 = Config9#aws_config.s3_port,
 
     ConfigA = mini_s3:new("key", "secret", "host:23"),
-    "http://" = ConfigA#aws_config.s3_scheme,
-    23 = Config9#aws_config.s3_port,
+    "https://" = ConfigA#aws_config.s3_scheme,
+    23 = ConfigA#aws_config.s3_port,
 
 
     % host
     ConfigB = mini_s3:new("key", "secret", "host"),
-    "http://" = ConfigB#aws_config.s3_scheme,
-    80 = ConfigB#aws_config.s3_port.
+    "https://" = ConfigB#aws_config.s3_scheme,
+    443 = ConfigB#aws_config.s3_port.
+
+% toggle port on host header (add port or remove it)
+get_host_toggleport_test() ->
+    Config0 = mini_s3:new("", "", "host"),
+    "host:443" = mini_s3:get_host_toggleport("host", Config0),
+    Config1 = mini_s3:new("", "", "host:123"),
+    "host" = mini_s3:get_host_toggleport("host:123", Config1),
+    Config2 = mini_s3:new("", "", "http://host"),
+    "http://host:80" = mini_s3:get_host_toggleport("http://host", Config2),
+    Config3 = mini_s3:new("", "", "http://host:123"),
+    "http://host" = mini_s3:get_host_toggleport("http://host:123", Config3),
+    Config4 = mini_s3:new("", "", "https://host:123"),
+    "https://host" = mini_s3:get_host_toggleport("https://host:123", Config4).
 
 % construct url from config
 get_url_test() ->
