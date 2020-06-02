@@ -933,11 +933,6 @@ get_url_noport(Config) ->
 % construct url (scheme://host:port) from config
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
-io:format("~nin get_url_port", []),
-io:format("~nin get_url_port", []),
-io:format("~nin get_url_port", []),
-io:format("~nin get_url_port", []),
-io:format("~nin get_url_port", []),
     Url0 = erlcloud_s3:get_object_url("", "", Config),
 io:format("~nfinished erlcloud_s3:get_object_url", []),
     Url1 = string:trim(Url0, trailing, "/"),
