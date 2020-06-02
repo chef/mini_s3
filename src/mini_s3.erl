@@ -212,9 +212,9 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 %     bucket_access_type=BucketAccessType}.
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-?debugFmt("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)", []),
-?debugFmt("~nHost=~p", [Host]),
-?debugFmt("~nBucketAccessType=~p", [BucketAccessType]),
+io:format("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)", []),
+io:format("~nHost=~p", [Host]),
+io:format("~nBucketAccessType=~p", [BucketAccessType]),
     % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
@@ -458,10 +458,10 @@ list_objects(BucketName, Options, Config) ->
     %io:format("~n~nmini_s3:list_objects(~p, ~p, ~0p)", [BucketName, Options, config]),
     % wip attempt to fix ct tests
     List0 = erlcloud_s3:list_objects(BucketName, Options, Config),
-    ?debugFmt("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List0]),
+    io:format("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List0]),
     [{name, Name} | Rest] = List0,
     List1 = [{name, http_uri:decode(Name)} | Rest],
-    ?debugFmt("~ndecoded List: ~p", [List1]),
+    io:format("~ndecoded List: ~p", [List1]),
     List1.
 
 extract_contents(Nodes) ->
@@ -933,15 +933,15 @@ get_url_noport(Config) ->
 % construct url (scheme://host:port) from config
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
-?debugFmt("~nin get_url_port", []),
-?debugFmt("~nin get_url_port", []),
-?debugFmt("~nin get_url_port", []),
-?debugFmt("~nin get_url_port", []),
-?debugFmt("~nin get_url_port", []),
+io:format("~nin get_url_port", []),
+io:format("~nin get_url_port", []),
+io:format("~nin get_url_port", []),
+io:format("~nin get_url_port", []),
+io:format("~nin get_url_port", []),
     Url0 = erlcloud_s3:get_object_url("", "", Config),
-?debugFmt("~nfinished erlcloud_s3:get_object_url", []),
+io:format("~nfinished erlcloud_s3:get_object_url", []),
     Url1 = string:trim(Url0, trailing, "/"),
-?debugFmt("~nfinished string:trim", []),
+io:format("~nfinished string:trim", []),
     case Config#aws_config.s3_port of
         80 ->
             % won't contain port if port == 80
@@ -1024,7 +1024,7 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
-    ?debugFmt("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, "truncated", Options, HTTPHeaders, config]),
+    io:format("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, "truncated", Options, HTTPHeaders, config]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
 %-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
