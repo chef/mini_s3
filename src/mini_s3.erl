@@ -150,7 +150,7 @@ manual_start() ->
 %    erlcloud_s3:new(AccessKeyID, SecretAccessKey).
 
 %-spec new(string(), string(), string()) -> config().
--spec new(string(), string(), string()) -> aws_config().
+-spec new(string() | binary(), string() | binary(), string()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey, Host) ->
 %    #config{
@@ -204,7 +204,7 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 % mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
 
 %-spec new(string(), string(), string(), bucket_access_type()) -> config().
--spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
+-spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 
 %new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 %    #config{
@@ -230,7 +230,7 @@ io:format("~nBucketAccessType=~p", [BucketAccessType]),
     }.
 
 %-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
--spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
+-spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 
 % erlcloud has no new/5. 
 % also, arguments differ.  erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port)
