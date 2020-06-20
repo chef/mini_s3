@@ -926,6 +926,7 @@ list_object_versions(BucketName, Options) ->
 %    ms3_xml:decode(Attributes, Doc).
 
 % toggle port on host header (add port or remove it)
+% is this still necessary?
 -spec get_host_toggleport(string(), aws_config()) -> string().
 get_host_toggleport(Host, Config) ->
     case string:split(Host, ":", trailing) of
@@ -943,6 +944,7 @@ get_host_toggleport(Host, Config) ->
     end.
 
 % construct url (scheme://host) from config
+% is this still necessary?
 -spec get_url_noport(aws_config()) -> string().
 get_url_noport(Config) ->
     UrlRaw  = get_url_port(Config),
@@ -950,6 +952,7 @@ get_url_noport(Config) ->
     string:trim(UrlTemp, trailing, ":").
 
 % construct url (scheme://host:port) from config
+% is this still necessary?
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
     Url0 = erlcloud_s3:get_object_url("", "", Config),
