@@ -214,9 +214,6 @@ new(AccessKeyID, SecretAccessKey, Host) ->
 %     bucket_access_type=BucketAccessType}.
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-io:format("~ncalling mini_s3:new/4 - is this ever used? (YES, it is)", []),
-io:format("~nHost=~p", [Host]),
-io:format("~nBucketAccessType=~p", [BucketAccessType]),
     % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
@@ -242,8 +239,6 @@ io:format("~nBucketAccessType=~p", [BucketAccessType]),
 %   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
-    io:format("~nmini_s3:new/5 doesn't know what to do with SslOpts - dropping for now"),
-    io:format("~nmini_s3:new/5 - SslOpts = ~p", [_SslOpts]),
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
 %--------------------------------------------------------------------------
 
@@ -258,7 +253,6 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
 %                SrcKeyName, Options, default_config()).
 
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
-    io:format("~n~nmini_s3:copy_object(~p, ~p, ~p, ~p, ~p)", [DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options]),
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options).
 
 %-spec copy_object(string(), string(), string(), string(),
@@ -287,7 +281,6 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
 %     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
-    io:format("~n~nmini_s3:copy_object(~p, ~p, ~p, ~p, ~p, ~0p)", [DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, "config"]),
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config).
 
 %-spec create_bucket(string(), bucket_acl(), location_constraint()) -> ok.
@@ -296,7 +289,6 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Con
 %    create_bucket(BucketName, ACL, LocationConstraint, default_config()).
 
 create_bucket(BucketName, ACL, LocationConstraint) ->
-    io:format("~n~nmini_s3:create_bucket(~p, ~p, ~p)", [BucketName, ACL, LocationConstraint]),
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint).
 
 %-spec create_bucket(string(), bucket_acl(), location_constraint(), config()) -> ok.
@@ -321,7 +313,6 @@ create_bucket(BucketName, ACL, LocationConstraint) ->
 %    s3_simple_request(Config, put, BucketName, "/", "", [], POSTData, Headers).
 
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
-    io:format("~n~nmini_s3:create_bucket(~p, ~p, ~p, ~0p)", [BucketName, ACL, LocationConstraint, "config"]),
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
 encode_acl(undefined)                 -> undefined;
@@ -339,7 +330,6 @@ encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 
 % is this used?
 delete_bucket(BucketName) ->
-    io:format("~n~nmini_s3:delete_bucket(~p)", [BucketName]),
     erlcloud_s3:delete_bucket(BucketName).
 
 %-spec delete_bucket(string(), config()) -> ok.
@@ -349,7 +339,6 @@ delete_bucket(BucketName) ->
 %    s3_simple_request(Config, delete, BucketName, "/", "", [], <<>>, []).
 
 delete_bucket(BucketName, Config) ->
-    io:format("~n~nmini_s3:delete_bucket(~p, ~0p)", [BucketName, config]),
     erlcloud_s3:delete_bucket(BucketName, Config).
 
 %-spec delete_object(string(), string()) -> proplists:proplist().
@@ -358,7 +347,6 @@ delete_bucket(BucketName, Config) ->
 %    delete_object(BucketName, Key, default_config()).
 
 delete_object(BucketName, Key) ->
-    io:format("~n~nmini_s3:delete_object(~p, ~p)", [BucketName, Key]),
     erlcloud_s3:delete_object(BucketName, Key).
 
 %-spec delete_object(string(), string(), config()) -> proplists:proplist().
@@ -373,7 +361,6 @@ delete_object(BucketName, Key) ->
 %     {version_id, Id}].
 
 delete_object(BucketName, Key, Config) ->
-    io:format("~n~nmini_s3:delete_object(~p, ~p, ~0p)", [BucketName, Key, config]),
     erlcloud_s3:delete_object(BucketName, Key, Config).
 
 %-spec delete_object_version(string(), string(), string()) ->
@@ -383,7 +370,6 @@ delete_object(BucketName, Key, Config) ->
 %    delete_object_version(BucketName, Key, Version, default_config()).
 
 delete_object_version(BucketName, Key, Version) ->
-    io:format("~n~nmini_s3:delete_object_version(~p, ~p, ~p)", [BucketName, Key, Version]),
     erlcloud_s3:delete_object_version(BucketName, Key, Version).
 
 %-spec delete_object_version(string(), string(), string(), config()) ->
@@ -401,7 +387,6 @@ delete_object_version(BucketName, Key, Version) ->
 %     {version_id, Id}].
 
 delete_object_version(BucketName, Key, Version, Config) ->
-    io:format("~n~nmini_s3:delete_object_version(~p, ~p, ~p, ~0p)", [BucketName, Key, Version, config]),
     erlcloud_s3:delete_object_version(BucketName, Key, Version, Config).
 
 %-spec list_buckets() -> proplists:proplist().
@@ -423,7 +408,6 @@ delete_object_version(BucketName, Key, Version, Config) ->
 %    [{buckets, Buckets}].
 
 list_buckets(Config) ->
-    io:format("~n~nmini_s3:list_buckets(~0p)", [config]),
     Result = erlcloud_s3:list_buckets(Config),
     case proplists:lookup(buckets, Result) of none -> [{buckets, []}]; X -> [X] end.
 
@@ -433,7 +417,6 @@ list_buckets(Config) ->
 %    list_objects(BucketName, Options, default_config()).
 
 list_objects(BucketName, Options) ->
-    io:format("~n~nmini_s3:list_objects(~p, ~p)", [BucketName, Options]),
     erlcloud_s3:list_objects(BucketName, Options).
 
 %-spec list_objects(string(), proplists:proplist(), config()) ->
@@ -457,13 +440,10 @@ list_objects(BucketName, Options) ->
 %    ms3_xml:decode(Attributes, Doc).
 
 list_objects(BucketName, Options, Config) ->
-    %io:format("~n~nmini_s3:list_objects(~p, ~p, ~0p)", [BucketName, Options, config]),
     % wip attempt to fix ct tests
     List0 = erlcloud_s3:list_objects(BucketName, Options, Config),
-    io:format("~nmini_s3:list_objects(~p, ~p, ~0p): ~p", [BucketName, Options, config, List0]),
     [{name, Name} | Rest] = List0,
     List1 = [{name, http_uri:decode(Name)} | Rest],
-    io:format("~ndecoded List: ~p", [List1]),
     List1.
 
 extract_contents(Nodes) ->
@@ -486,7 +466,6 @@ extract_user([Node]) ->
 %    get_bucket_attribute(BucketName, AttributeName, default_config()).
 
 get_bucket_attribute(BucketName, AttributeName) ->
-    io:format("~n~nmini_s3:get_bucket_attribute(~p, ~p)", [BucketName, AttributeName]),
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName).
 
 %-spec get_bucket_attribute(string(), bucket_attribute_name(), config()) -> term().
@@ -632,7 +611,6 @@ format_s3_uri(Config, Host) ->
     Scheme = case string:split(Scheme0, "://", leading) of [Scheme0] -> Scheme0++"://"; [_, []] -> Scheme0 end,
     Port0 = integer_to_list(Config#aws_config.s3_port),
     BAccessType = Config#aws_config.s3_bucket_access_method,
-io:format("~n~nmini_s3:format_s3_uri: Config=~0p Host=~p Scheme=~p, S3Url=~p BAccessType=~p", [config, Host, Scheme, S3Url, BAccessType]),
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
         %http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
         http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
@@ -677,12 +655,8 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
-    io:format("~n~n----------------------------------------"),
-    io:format("~nmini_s3:s3_url/6"
-        "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p", [Method, BucketName0, Key0, Lifetime, RawHeaders]),
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
-    io:format("~n~nfinished mini_s3:s3_url/6 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
@@ -691,9 +665,6 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
-    io:format("~n~n----------------------------------------"),
-    io:format("~nmini_s3:s3_url/7 (is this ever used? no, it appears s3_url/6 is used?)"
-        "~nmethod = ~p~nbucketname = ~p~nkey = ~p~nlifetime = ~p~nrawheaders = ~p~ndate = ~p", [Method, BucketName0, Key0, Lifetime, RawHeaders, Date]),
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
@@ -712,7 +683,6 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
 %                                   $&, "Expires=", Expires,
 %                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
 %                                  ]),
-io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [RequestURI]),
     iolist_to_binary(RequestURI).
 
 %make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
@@ -749,7 +719,6 @@ io:format("~n~nfinished mini_s3:s3_url/7 COMPLETE.  RequestURI = ~p~n~n", [Reque
 
 % not sure if this is used? probably would need to redirect to the one with a config and use a default config.
 get_object(BucketName, Key, Options) ->
-    io:format("~n~nmini_s3:get_object(~p, ~p, ~p)", [BucketName, Key, Options]),
     erlcloud_s3:get_object(BucketName, Key, Options).
 
 %-spec get_object(string(), string(), proplists:proplist(), config()) ->
@@ -775,7 +744,6 @@ get_object(BucketName, Key, Options) ->
 %     extract_metadata(Headers)].
 
 get_object(BucketName, Key, Options, Config) ->
-    io:format("~n~nmini_s3:get_object(~p, ~p, ~p ~0p)", [BucketName, Key, Options, config]),
     erlcloud_s3:get_object(BucketName, Key, Options, Config).
 
 %-spec get_object_acl(string(), string()) -> proplists:proplist().
@@ -784,7 +752,6 @@ get_object(BucketName, Key, Options, Config) ->
 %    get_object_acl(BucketName, Key, default_config()).
 
 get_object_acl(BucketName, Key) ->
-    io:format("~n~nmini_s3:get_object_acl(~p, ~p)", [BucketName, Key]),
     erlcloud_s3:get_object_acl(BucketName, Key).
 
 %-spec get_object_acl(string(), string(), proplists:proplist() | config()) -> proplists:proplist().
@@ -796,7 +763,6 @@ get_object_acl(BucketName, Key) ->
 %    get_object_acl(BucketName, Key, Options, default_config()).
 
 get_object_acl(BucketName, Key, Config) ->
-    io:format("~n~nmini_s3:get_object_acl(~p, ~p, ~0p)", [BucketName, Key, config]),
     erlcloud_s3:get_object_acl(BucketName, Key, Config).
 
 %-spec get_object_acl(string(), string(), proplists:proplist(), config()) -> proplists:proplist().
@@ -813,7 +779,6 @@ get_object_acl(BucketName, Key, Config) ->
 %    ms3_xml:decode(Attributes, Doc).
 
 get_object_acl(BucketName, Key, Options, Config) ->
-    io:format("~n~nmini_s3:get_object_acl(~p, ~p, ~p, ~0p)", [BucketName, Key, Options, config]),
     erlcloud_s3:get_object_acl(BucketName, Key, Options, Config).
 
 %-spec get_object_metadata(string(), string(), proplists:proplist()) -> proplists:proplist().
@@ -836,11 +801,9 @@ get_object_acl(BucketName, Key, Options, Config) ->
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 
 get_object_metadata(BucketName, Key, Options, Config) ->
-    io:format("~nmini_s3:get_object_metadata/4"),
     % TODO: do a search first to make sure this header isn't there before adding (proplists:get_value)
     %Options = [{"x-amz-content-sha256", "UNSIGNED-PAYLOAD"}, {"content-length", "0"}, {"x-amz-decoded-content-length", "0"} | Options0],
     Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config),
-    io:format("~nmini_s3:get_object_metadata/4 result = ~p", [Z]),
     Z.
 %io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
 %io:format("~n----------------------------"),
@@ -879,7 +842,6 @@ extract_metadata(Headers) ->
 %    get_object_torrent(BucketName, Key, default_config()).
 
 get_object_torrent(BucketName, Key) ->
-    io:format("~n~nmini_s3:get_object_torrent(~p, ~p)", [BucketName, Key]),
     erlcloud_s3:get_object_torrent(BucketName, Key).
 
 %-spec get_object_torrent(string(), string(), config()) -> proplists:proplist().
@@ -891,7 +853,6 @@ get_object_torrent(BucketName, Key) ->
 %     {torrent, list_to_binary(Body)}].
 
 get_object_torrent(BucketName, Key, Config) ->
-    io:format("~n~nmini_s3:get_object_torrent(~p, ~p, ~0p)", [BucketName, Key, config]),
     erlcloud_s3:get_object_torrent(BucketName, Key, Config).
 
 %-spec list_object_versions(string(), proplists:proplist()) -> proplists:proplist().
@@ -900,7 +861,6 @@ get_object_torrent(BucketName, Key, Config) ->
 %    list_object_versions(BucketName, Options, default_config()).
 
 list_object_versions(BucketName, Options) ->
-    io:format("~n~nmini_s3:list_object_versions(~p, ~p)", [BucketName, Options]),
     erlcloud_s3:list_object_versions(BucketName, Options).
 
 %-spec list_object_versions(string(), proplists:proplist(), config()) -> proplists:proplist().
@@ -956,9 +916,7 @@ get_url_noport(Config) ->
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
     Url0 = erlcloud_s3:get_object_url("", "", Config),
-io:format("~nfinished erlcloud_s3:get_object_url", []),
     Url1 = string:trim(Url0, trailing, "/"),
-io:format("~nfinished string:trim", []),
     case Config#aws_config.s3_port of
         80 ->
             % won't contain port if port == 80
@@ -974,7 +932,6 @@ io:format("~nfinished string:trim", []),
 %    end.
 
 list_object_versions(BucketName, Options, Config) ->
-    io:format("~n~nmini_s3:list_object_versions(~p, ~p, ~0p)", [BucketName, Options, config]),
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
 
 extract_versions(Nodes) ->
@@ -1016,7 +973,6 @@ extract_bucket(Node) ->
 
 % dunno if this is used or not (no Config)
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
-    io:format("~n~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p)", [BucketName, Key, Value, Options, HTTPHeaders]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
 %-spec put_object(string(),
@@ -1041,7 +997,6 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
-    io:format("~nmini_s3:put_object(~p, ~p, ~p, ~p, ~p, ~0p)", [BucketName, Key, "truncated", Options, HTTPHeaders, config]),
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
 %-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
@@ -1050,7 +1005,6 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
 %    set_object_acl(BucketName, Key, ACL, default_config()).
 
 set_object_acl(BucketName, Key, ACL) ->
-    io:format("~n~nmini_s3:set_object_acl(~p, ~p, ~p)", [BucketName, Key, ACL]),
     erlcloud_s3:set_object_acl(BucketName, Key, ACL).
 
 %-spec set_object_acl(string(), string(), proplists:proplist(), config()) -> ok.
@@ -1067,7 +1021,6 @@ set_object_acl(BucketName, Key, ACL) ->
 %    s3_simple_request(Config, put, BucketName, [$/|Key], "acl", [], XMLText, []).
 
 set_object_acl(BucketName, Key, ACL, Config) ->
-    io:format("~n~nmini_s3:set_object_acl(~p, ~p, ~p, ~0p)", [BucketName, Key, ACL, config]),
     erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config).
 
 %-spec set_bucket_attribute(string(),
@@ -1078,7 +1031,6 @@ set_object_acl(BucketName, Key, ACL, Config) ->
 %    set_bucket_attribute(BucketName, AttributeName, Value, default_config()).
 
 set_bucket_attribute(BucketName, AttributeName, Value) ->
-    io:format("~n~nmini_s3:set_bucket_attribute(~p, ~p, ~p)", [BucketName, AttributeName, Value]),
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value).
 
 %-spec set_bucket_attribute(string(), settable_bucket_attribute_name(),
@@ -1141,7 +1093,6 @@ set_bucket_attribute(BucketName, AttributeName, Value) ->
 %    s3_simple_request(Config, put, BucketName, "/", Subresource, [], POSTData, Headers).
 
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
-    io:format("~n~nmini_s3:set_bucket_attribute(~p, ~p, ~p, ~0p)", [BucketName, AttributeName, Value, config]),
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
 
 encode_grants(Grants) ->
@@ -1188,14 +1139,6 @@ s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
                             ssl_options=SslOpts},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-io:format("~nmini_s3:s3_request -----------------"),
-io:format("~nMethod: ~p",       [Method]),
-io:format("~nHost: ~p",         [Host]),
-io:format("~nPath: ~p",         [Path]),
-io:format("~nSubresource: ~p",  [Subresource]),
-io:format("~nParams: ~p",       [Params]),
-io:format("~nPOSTData: ~p",     [POSTData]),
-io:format("~nHeaders: ~p",      [Headers]),
     {ContentMD5, ContentType, Body} =
         case POSTData of
             {PD, CT} ->
@@ -1246,9 +1189,6 @@ RequestHeaders0 = FHeaders ++
 %{Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
 [$/ | Key] = Path,
 Lifetime = 900,
-io:format("~nKey: ~p",              [Key]),
-io:format("~nRequestHeaders1: ~p",  [RequestHeaders1]),
-io:format("~nDate: ~p",             [Date]),
 RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
     Response = case Method of
                    get ->
@@ -1266,7 +1206,6 @@ RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
                    _ ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
                end,
-io:format("~nmini_s3:s3_request END ------------------"),
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
             ResponseHeaders = canonicalize_headers(ResponseHeaders0),
