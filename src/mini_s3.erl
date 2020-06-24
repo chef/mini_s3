@@ -126,11 +126,23 @@ manual_start() ->
     application:start(inets).
 
 -spec new(string() | binary(), string() | binary(), string()) -> aws_config().
-new(AccessKeyID, SecretAccessKey, Host) ->
+new(AccessKeyID, SecretAccessKey, Host0) ->
     % chef-server crams scheme://host:port all into into Host; erlcloud wants them separate.
     % Assume:
     %   Host   == scheme://domain:port | scheme://domain | domain:port | domain
     %   scheme == http | https
+
+    % crude ipv4/6 detection
+    {Ipv, Host} = case string:tokens(Host0, "[]") of
+              [Host0] -> Domainx = "", {4, Host0};
+              [Schemex,    Domainx, Portx] -> {6, lists:flatten([Schemex,    $x, Portx])};
+              ["http://",  Domainx       ] -> {6, lists:flatten(["http://",  $x       ])};
+              ["https://", Domainx       ] -> {6, lists:flatten(["https://", $x       ])};
+              [            Domainx, Portx] -> {6, lists:flatten([            $x, Portx])};
+              [            Domainx       ] -> {6, "x"}
+    end,
+
+
     case string:split(Host, ":", all) of
         % Host == scheme://domain:port
         [Scheme0, [$/, $/ | Domain] | [Port0]] ->
@@ -163,9 +175,9 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style
     %% requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
-
+Domainz = case Ipv of 4 -> Domain; _ -> "[" ++ Domainx ++ "]" end,
     %% erlcloud seems to url-encode paths before sending requests
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domainz, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 %-spec new(string(), string(), string(), bucket_access_type()) -> config().
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
