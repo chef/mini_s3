@@ -102,6 +102,7 @@ expiration_time_test_() ->
     [ ?_assertEqual(Expect, TestFun(Arg, MockedTimestamp))
       || {Arg, MockedTimestamp, Expect} <- Tests].
 
+% TODO: fix this test
 s3_uri_test_() ->
     Config = #config{
                access_key_id = "access_key_id",
