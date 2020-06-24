@@ -92,12 +92,6 @@
               bucket_acl/0,
               location_constraint/0]).
 
-% mini_s3 config and erlcloud config differ, but both are tuples/records.
-% attempting to use aws_config record defined in erlcloud_aws.hrl.
-% substituting config for aws_config  defined in erlcloud_aws.hrl.
-%-opaque config() :: #config{}.
-
-%-type bucket_access_type() :: virtual_domain | path.
 -type bucket_access_type() :: vhost | path.
 
 -type bucket_attribute_name() :: acl
@@ -131,33 +125,7 @@ manual_start() ->
     application:start(ssl),
     application:start(inets).
 
-
-%--------------------------------------------------------------------------
-% new seems to produce a 'config' record (tuple).
-% erlcloud's version does also, but the record isn't the same as mini_s3's.
-% temporarily HACKED to pass back custom hardcoded authentication keys
-
-%-spec new(string(), string()) -> config().
-%-spec new(string(), string()) -> aws_config().
-
-%new(AccessKeyID, SecretAccessKey) ->
-%    #config{
-%     access_key_id=AccessKeyID,
-%     secret_access_key=SecretAccessKey}.
-
-% this results in an inconsistent s3_scheme/s3_port usage (see returned config)
-%new(AccessKeyID, SecretAccessKey) ->
-%    erlcloud_s3:new(AccessKeyID, SecretAccessKey).
-
-%-spec new(string(), string(), string()) -> config().
 -spec new(string() | binary(), string() | binary(), string()) -> aws_config().
-
-%new(AccessKeyID, SecretAccessKey, Host) ->
-%    #config{
-%     access_key_id=AccessKeyID,
-%     secret_access_key=SecretAccessKey,
-%     s3_url=Host}.
-
 new(AccessKeyID, SecretAccessKey, Host) ->
     % chef-server crams scheme://host:port all into into Host; erlcloud wants them separate.
     % Assume:
@@ -196,23 +164,14 @@ new(AccessKeyID, SecretAccessKey, Host) ->
     %% requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
 
-    %% should we url-encode Domain (using ms3_http:url_encode_loose) ?
     %% erlcloud seems to url-encode paths before sending requests
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
-
-% erlcloud wants accesskey, secretaccesskey, host, port.
-% mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
 
 %-spec new(string(), string(), string(), bucket_access_type()) -> config().
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 
-%new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-%    #config{
-%     access_key_id=AccessKeyID,
-%     secret_access_key=SecretAccessKey,
-%     s3_url=Host,
-%     bucket_access_type=BucketAccessType}.
-
+% erlcloud wants accesskey, secretaccesskey, host, port.
+% mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
@@ -240,78 +199,21 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
-%--------------------------------------------------------------------------
 
-
-
-%--------------------------------------------------------------------------
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
 -spec copy_object(string(), string(), string(), string(), proplists:proplist()) -> proplists:proplist().
-%copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
-%    copy_object(DestBucketName, DestKeyName, SrcBucketName,
-%                SrcKeyName, Options, default_config()).
-
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options).
-
-%-spec copy_object(string(), string(), string(), string(),
-%                  proplists:proplist(), config()) -> proplists:proplist().
-%copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
-%    SrcVersion = case proplists:get_value(version_id, Options) of
-%                     undefined -> "";
-%                     VersionID -> ["?versionId=", VersionID]
-%                 end,
-%    RequestHeaders =
-%        [{"x-amz-copy-source", [SrcBucketName, $/, SrcKeyName, SrcVersion]},
-%         {"x-amz-metadata-directive",
-%          proplists:get_value(metadata_directive, Options)},
-%         {"x-amz-copy-source-if-match", proplists:get_value(if_match, Options)},
-%         {"x-amz-copy-source-if-none-match",
-%          proplists:get_value(if_none_match, Options)},
-%         {"x-amz-copy-source-if-unmodified-since",
-%          proplists:get_value(if_unmodified_since, Options)},
-%         {"x-amz-copy-source-if-modified-since",
-%          proplists:get_value(if_modified_since, Options)},
-%         {"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}],
-%    {Headers, _Body} = s3_request(Config, put, DestBucketName, [$/|DestKeyName],
-%                                  "", [], <<>>, RequestHeaders),
-%    [{copy_source_version_id,
-%      proplists:get_value("x-amz-copy-source-version-id", Headers, "false")},
-%     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
 
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config).
 
 %-spec create_bucket(string(), bucket_acl(), location_constraint()) -> ok.
-%
-%create_bucket(BucketName, ACL, LocationConstraint) ->
-%    create_bucket(BucketName, ACL, LocationConstraint, default_config()).
-
 create_bucket(BucketName, ACL, LocationConstraint) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint).
 
 %-spec create_bucket(string(), bucket_acl(), location_constraint(), config()) -> ok.
-%
-%create_bucket(BucketName, ACL, LocationConstraint, Config)
-%  when is_list(BucketName), is_atom(ACL), is_atom(LocationConstraint) ->
-%    Headers = case ACL of
-%                  private -> [];  %% private is the default
-%                  _       -> [{"x-amz-acl", encode_acl(ACL)}]
-%              end,
-%    POSTData = case LocationConstraint of
-%                   none -> <<>>;
-%                   Location when Location =:= eu; Location =:= us_west_1 ->
-%                       LocationName = case Location of
-%                                          eu -> "EU";
-%                                          us_west_1 -> "us-west-1"
-%                                      end,
-%                       XML = {'CreateBucketConfiguration', [{xmlns, ?XMLNS_S3}],
-%                              [{'LocationConstraint', [LocationName]}]},
-%                       list_to_binary(xmerl:export_simple([XML], xmerl_xml))
-%               end,
-%    s3_simple_request(Config, put, BucketName, "/", "", [], POSTData, Headers).
-
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
@@ -323,122 +225,43 @@ encode_acl(authenticated_read)        -> "authenticated-read";
 encode_acl(bucket_owner_read)         -> "bucket-owner-read";
 encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 
-%-spec delete_bucket(string()) -> ok.
-%
-%delete_bucket(BucketName) ->
-%    delete_bucket(BucketName, default_config()).
-
 % is this used?
+%-spec delete_bucket(string()) -> ok.
 delete_bucket(BucketName) ->
     erlcloud_s3:delete_bucket(BucketName).
 
 %-spec delete_bucket(string(), config()) -> ok.
-%
-%delete_bucket(BucketName, Config)
-%  when is_list(BucketName) ->
-%    s3_simple_request(Config, delete, BucketName, "/", "", [], <<>>, []).
-
 delete_bucket(BucketName, Config) ->
     erlcloud_s3:delete_bucket(BucketName, Config).
 
 %-spec delete_object(string(), string()) -> proplists:proplist().
-%
-%delete_object(BucketName, Key) ->
-%    delete_object(BucketName, Key, default_config()).
-
 delete_object(BucketName, Key) ->
     erlcloud_s3:delete_object(BucketName, Key).
 
 %-spec delete_object(string(), string(), config()) -> proplists:proplist().
-%
-%delete_object(BucketName, Key, Config)
-%  when is_list(BucketName), is_list(Key) ->
-%    {Headers, _Body} = s3_request(Config, delete,
-%                                  BucketName, [$/|Key], "", [], <<>>, []),
-%    Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
-%    Id = proplists:get_value("x-amz-version-id", Headers, "null"),
-%    [{delete_marker, list_to_existing_atom(Marker)},
-%     {version_id, Id}].
-
 delete_object(BucketName, Key, Config) ->
     erlcloud_s3:delete_object(BucketName, Key, Config).
 
 %-spec delete_object_version(string(), string(), string()) ->
-%                                   proplists:proplist().
-%
-%delete_object_version(BucketName, Key, Version) ->
-%    delete_object_version(BucketName, Key, Version, default_config()).
-
 delete_object_version(BucketName, Key, Version) ->
     erlcloud_s3:delete_object_version(BucketName, Key, Version).
 
 %-spec delete_object_version(string(), string(), string(), config()) ->
-%                                   proplists:proplist().
-%
-%delete_object_version(BucketName, Key, Version, Config)
-%  when is_list(BucketName),
-%       is_list(Key),
-%       is_list(Version)->
-%    {Headers, _Body} = s3_request(Config, delete, BucketName, [$/|Key],
-%                                  "versionId=" ++ Version, [], <<>>, []),
-%    Marker = proplists:get_value("x-amz-delete-marker", Headers, "false"),
-%    Id = proplists:get_value("x-amz-version-id", Headers, "null"),
-%    [{delete_marker, list_to_existing_atom(Marker)},
-%     {version_id, Id}].
-
 delete_object_version(BucketName, Key, Version, Config) ->
     erlcloud_s3:delete_object_version(BucketName, Key, Version, Config).
 
-%-spec list_buckets() -> proplists:proplist().
-%
-%list_buckets() ->
-%    list_buckets(default_config()).
-
-%list_buckets() ->
-%    io:format("~n~nmini_s3:list_buckets()"),
-%    erlcloud_s3:list_buckets().
-
 %-spec list_buckets(config()) -> proplists:proplist().
 -spec list_buckets(aws_config()) -> proplists:proplist().
-
-%list_buckets(Config) ->
-%    Doc = s3_xml_request(Config, get, "", "/", "", [], <<>>, []),
-%    Buckets = [extract_bucket(Node)
-%               || Node <- xmerl_xpath:string("/*/Buckets/Bucket", Doc)],
-%    [{buckets, Buckets}].
 
 list_buckets(Config) ->
     Result = erlcloud_s3:list_buckets(Config),
     case proplists:lookup(buckets, Result) of none -> [{buckets, []}]; X -> [X] end.
 
 %-spec list_objects(string(), proplists:proplist()) -> proplists:proplist().
-%
-%list_objects(BucketName, Options) ->
-%    list_objects(BucketName, Options, default_config()).
-
 list_objects(BucketName, Options) ->
     erlcloud_s3:list_objects(BucketName, Options).
 
-%-spec list_objects(string(), proplists:proplist(), config()) ->
-%                          proplists:proplist().
-%
-%list_objects(BucketName, Options, Config)
-%  when is_list(BucketName),
-%       is_list(Options) ->
-%    Params = [{"delimiter", proplists:get_value(delimiter, Options)},
-%              {"marker", proplists:get_value(marker, Options)},
-%              {"max-keys", proplists:get_value(max_keys, Options)},
-%              {"prefix", proplists:get_value(prefix, Options)}],
-%    Doc = s3_xml_request(Config, get, BucketName, "/", "", Params, <<>>, []),
-%    Attributes = [{name, "Name", text},
-%                  {prefix, "Prefix", text},
-%                  {marker, "Marker", text},
-%                  {delimiter, "Delimiter", text},
-%                  {max_keys, "MaxKeys", integer},
-%                  {is_truncated, "IsTruncated", boolean},
-%                  {contents, "Contents", fun extract_contents/1}],
-%    ms3_xml:decode(Attributes, Doc).
-
+%-spec list_objects(string(), proplists:proplist(), config()) -> proplists:proplist().
 list_objects(BucketName, Options, Config) ->
     % wip attempt to fix ct tests
     List0 = erlcloud_s3:list_objects(BucketName, Options, Config),
@@ -461,56 +284,10 @@ extract_user([Node]) ->
     ms3_xml:decode(Attributes, Node).
 
 %-spec get_bucket_attribute(string(), bucket_attribute_name()) -> term().
-%
-%get_bucket_attribute(BucketName, AttributeName) ->
-%    get_bucket_attribute(BucketName, AttributeName, default_config()).
-
 get_bucket_attribute(BucketName, AttributeName) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName).
 
 %-spec get_bucket_attribute(string(), bucket_attribute_name(), config()) -> term().
-%
-%get_bucket_attribute(BucketName, AttributeName, Config)
-%  when is_list(BucketName), is_atom(AttributeName) ->
-%    Attr = case AttributeName of
-%               acl             -> "acl";
-%               location        -> "location";
-%               logging         -> "logging";
-%               request_payment -> "requestPayment";
-%               versioning      -> "versioning"
-%           end,
-%    Doc = s3_xml_request(Config, get, BucketName, "/", Attr, [], <<>>, []),
-%    case AttributeName of
-%        acl ->
-%            Attributes = [{owner, "Owner", fun extract_user/1},
-%                          {access_control_list,
-%                           "AccessControlList/Grant", fun extract_acl/1}],
-%            ms3_xml:decode(Attributes, Doc);
-%        location ->
-%            ms3_xml:get_text("/LocationConstraint", Doc);
-%        logging ->
-%            case xmerl_xpath:string("/BucketLoggingStatus/LoggingEnabled", Doc) of
-%                [] ->
-%                    {enabled, false};
-%                [LoggingEnabled] ->
-%                    Attributes = [{target_bucket, "TargetBucket", text},
-%                                  {target_prefix, "TargetPrefix", text},
-%                                  {target_trants, "TargetGrants/Grant", fun extract_acl/1}],
-%                    [{enabled, true}|ms3_xml:decode(Attributes, LoggingEnabled)]
-%            end;
-%        request_payment ->
-%            case ms3_xml:get_text("/RequestPaymentConfiguration/Payer", Doc) of
-%                "Requester" -> requester;
-%                _           -> bucket_owner
-%            end;
-%        versioning ->
-%            case ms3_xml:get_text("/VersioningConfiguration/Status", Doc) of
-%                "Enabled"   -> enabled;
-%                "Suspended" -> suspended;
-%                _           -> disabled
-%            end
-%    end.
-
 get_bucket_attribute(BucketName, AttributeName, Config) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config).
 
@@ -598,7 +375,6 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
-%-spec format_s3_uri(config(), string()) -> string().
 -spec format_s3_uri(aws_config(), string()) -> string().
 %format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
 format_s3_uri(Config, Host) ->
@@ -628,11 +404,6 @@ format_s3_uri(Config, Host) ->
                            if_not_empty(Host, [$/, Host])])
     end.
 
-% NOTE: erlcloud doesn't have s3_url function
-% this appears to be a sigv2 "presigned" or "query string request" for enabling direct third-party browser access
-% to private Amazon S3 data without proxying the request. erlcloud does not have this capability at this time.
-% converted to sigv4
-
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
 %% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
@@ -650,7 +421,6 @@ format_s3_uri(Config, Host) ->
 
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), aws_config()) -> binary().
-%             proplists:proplist(), config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
@@ -668,222 +438,54 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
-%    Expires = erlang:integer_to_list(expiration_time(Lifetime)),
-%
-%    Path = lists:flatten([$/, BucketName, $/ , Key]),
-%    CanonicalizedResource = ms3_http:url_encode_loose(Path),
-%
-%    {_StringToSign, Signature} = mini_s3:make_signed_url_authorization(SecretKey, Method,
-%                                                               CanonicalizedResource,
-%                                                               Expires, RawHeaders),
-%
-%    RequestURI = iolist_to_binary([
-%                                   format_s3_uri(Config, ""), CanonicalizedResource,
-%                                   $?, "AWSAccessKeyId=", AccessKey,
-%                                   $&, "Expires=", Expires,
-%                                   $&, "Signature=", ms3_http:url_encode_loose(Signature)
-%                                  ]),
     iolist_to_binary(RequestURI).
 
-%make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
-%                              Expires, RawHeaders) ->
-%    Headers = canonicalize_headers(RawHeaders),
-%
-%    HttpMethod = string:to_upper(atom_to_list(Method)),
-%
-%    ContentType = retrieve_header_value("content-type", Headers),
-%    ContentMD5 = retrieve_header_value("content-md5", Headers),
-%
-%    %% We don't currently use this, but I'm adding a placeholder for future enhancements See
-%    %% the URL in the docstring for details
-%    CanonicalizedAMZHeaders = "",
-%
-%
-%    StringToSign = lists:flatten([HttpMethod, $\n,
-%                                  ContentMD5, $\n,
-%                                  ContentType, $\n,
-%                                  Expires, $\n,
-%                                  CanonicalizedAMZHeaders, %% IMPORTANT: No newline here!!
-%                                  CanonicalizedResource
-%                                 ]),
-%io:format("~n~nmini_s3:make_signed_url_authorization: SecretKey=~p StringToSign=~0p", [SecretKey, StringToSign]),
-%    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
-%    {StringToSign, Signature}.
-
-
+% not sure if this is used? probably would need to redirect to the one with a config and use a default config.
 %-spec get_object(string(), string(), proplists:proplist()) ->
 %                        proplists:proplist().
-%
-%get_object(BucketName, Key, Options) ->
-%    get_object(BucketName, Key, Options, default_config()).
-
-% not sure if this is used? probably would need to redirect to the one with a config and use a default config.
 get_object(BucketName, Key, Options) ->
     erlcloud_s3:get_object(BucketName, Key, Options).
 
 %-spec get_object(string(), string(), proplists:proplist(), config()) ->
-%                        proplists:proplist().
-%
-%get_object(BucketName, Key, Options, Config) ->
-%    RequestHeaders = [{"Range", proplists:get_value(range, Options)},
-%                      {"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
-%                      {"If-Unmodified-Since", proplists:get_value(if_unmodified_since, Options)},
-%                      {"If-Match", proplists:get_value(if_match, Options)},
-%                      {"If-None-Match", proplists:get_value(if_none_match, Options)}],
-%    Subresource = case proplists:get_value(version_id, Options) of
-%                      undefined -> "";
-%                      Version   -> ["versionId=", Version]
-%                  end,
-%    {Headers, Body} = s3_request(Config, get, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
-%    [{etag, proplists:get_value("etag", Headers)},
-%     {content_length, proplists:get_value("content-length", Headers)},
-%     {content_type, proplists:get_value("content-type", Headers)},
-%     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-%     {version_id, proplists:get_value("x-amz-version-id", Headers, "null")},
-%     {content, list_to_binary(Body)}|
-%     extract_metadata(Headers)].
-
 get_object(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object(BucketName, Key, Options, Config).
 
 %-spec get_object_acl(string(), string()) -> proplists:proplist().
-%
-%get_object_acl(BucketName, Key) ->
-%    get_object_acl(BucketName, Key, default_config()).
-
 get_object_acl(BucketName, Key) ->
     erlcloud_s3:get_object_acl(BucketName, Key).
 
 %-spec get_object_acl(string(), string(), proplists:proplist() | config()) -> proplists:proplist().
-%
-%get_object_acl(BucketName, Key, Config)
-%  when is_record(Config, config) ->
-%    get_object_acl(BucketName, Key, [], Config);
-%get_object_acl(BucketName, Key, Options) ->
-%    get_object_acl(BucketName, Key, Options, default_config()).
-
 get_object_acl(BucketName, Key, Config) ->
     erlcloud_s3:get_object_acl(BucketName, Key, Config).
 
 %-spec get_object_acl(string(), string(), proplists:proplist(), config()) -> proplists:proplist().
-%
-%get_object_acl(BucketName, Key, Options, Config)
-%  when is_list(BucketName), is_list(Key), is_list(Options) ->
-%    Subresource = case proplists:get_value(version_id, Options) of
-%                      undefined -> "";
-%                      Version   -> ["&versionId=", Version]
-%                  end,
-%    Doc = s3_xml_request(Config, get, BucketName, [$/|Key], "acl" ++ Subresource, [], <<>>, []),
-%    Attributes = [{owner, "Owner", fun extract_user/1},
-%                  {access_control_list, "AccessControlList/Grant", fun extract_acl/1}],
-%    ms3_xml:decode(Attributes, Doc).
-
 get_object_acl(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object_acl(BucketName, Key, Options, Config).
-
-%-spec get_object_metadata(string(), string(), proplists:proplist()) -> proplists:proplist().
-%
-%get_object_metadata(BucketName, Key, Options) ->
-%    get_object_metadata(BucketName, Key, Options, default_config()).
-
-
-% erlcloud get_object_metadata/3 only supports passing a bucketname, key, and config.
-% converting to 4 parameter version and using default config.
-% is default config even useful at all, or will it just produce errors?
-%get_object_metadata(BucketName, Key, Options) ->
-%    io:format("~n~nmini_s3:get_object_metadata(~p, ~p, ~p, ~0p)", [BucketName, Key, Options, "default_config()"]),
-%    erlcloud_s3:get_object_metadata(BucketName, Key, Options, default_config()).
-
 
 % testing this code pursuant to investigation of pedant test 500s in checking file checksums
 % even if this works, will it break what was already working (retest pointing oc-erchef to s3 vs bookshelf)?
 
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
-
 get_object_metadata(BucketName, Key, Options, Config) ->
     % TODO: do a search first to make sure this header isn't there before adding (proplists:get_value)
     %Options = [{"x-amz-content-sha256", "UNSIGNED-PAYLOAD"}, {"content-length", "0"}, {"x-amz-decoded-content-length", "0"} | Options0],
     Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config),
     Z.
-%io:format("~nrouting through ORIGINAL mini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
-%io:format("~n----------------------------"),
-%io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
-%    RequestHeaders = [{"If-Modified-Since", proplists:get_value(if_modified_since, Options)},
-%                      {"If-Unmodified-Since", proplists:get_value(if_unmodified_since, Options)},
-%                      {"If-Match", proplists:get_value(if_match, Options)},
-%                      {"If-None-Match", proplists:get_value(if_none_match, Options)}],
-%    Subresource = case proplists:get_value(version_id, Options) of
-%                      undefined -> "";
-%                      Version   -> ["versionId=", Version]
-%                  end,
-%io:format("~nsubresource: ~p", [Subresource]),
-%Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options ++ RequestHeaders, Config),
-%io:format("~nreturn value from get_object_metadata: ~p", [Z]),
-%io:format("~n----------------------------"),
-%%    {Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
-%{Headers, _Body} = Z,
-%    [{last_modified, proplists:get_value("last-modified", Headers)},
-%     {etag, proplists:get_value("etag", Headers)},
-%     {content_length, proplists:get_value("content-length", Headers)},
-%     {content_type, proplists:get_value("content-type", Headers)},
-%     {delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-%     {version_id, proplists:get_value("x-amz-version-id", Headers, "false")}|extract_metadata(Headers)].
-
-%get_object_metadata(BucketName, Key, Options, Config) ->
-%io:format("~nmini_s3:get_object_metadata(~p, ~p, ~p, ~p)", [BucketName, Key, Options, "config"]),
-%    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
 
 %-spec get_object_torrent(string(), string()) -> proplists:proplist().
-%
-%get_object_torrent(BucketName, Key) ->
-%    get_object_torrent(BucketName, Key, default_config()).
-
 get_object_torrent(BucketName, Key) ->
     erlcloud_s3:get_object_torrent(BucketName, Key).
 
 %-spec get_object_torrent(string(), string(), config()) -> proplists:proplist().
-%
-%get_object_torrent(BucketName, Key, Config) ->
-%    {Headers, Body} = s3_request(Config, get, BucketName, [$/|Key], "torrent", [], <<>>, []),
-%    [{delete_marker, list_to_existing_atom(proplists:get_value("x-amz-delete-marker", Headers, "false"))},
-%     {version_id, proplists:get_value("x-amz-delete-marker", Headers, "false")},
-%     {torrent, list_to_binary(Body)}].
-
 get_object_torrent(BucketName, Key, Config) ->
     erlcloud_s3:get_object_torrent(BucketName, Key, Config).
 
 %-spec list_object_versions(string(), proplists:proplist()) -> proplists:proplist().
-%
-%list_object_versions(BucketName, Options) ->
-%    list_object_versions(BucketName, Options, default_config()).
-
 list_object_versions(BucketName, Options) ->
     erlcloud_s3:list_object_versions(BucketName, Options).
-
-%-spec list_object_versions(string(), proplists:proplist(), config()) -> proplists:proplist().
-%
-%list_object_versions(BucketName, Options, Config)
-%  when is_list(BucketName), is_list(Options) ->
-%    Params = [{"delimiter", proplists:get_value(delimiter, Options)},
-%              {"key-marker", proplists:get_value(key_marker, Options)},
-%              {"max-keys", proplists:get_value(max_keys, Options)},
-%              {"prefix", proplists:get_value(prefix, Options)},
-%              {"version-id-marker", proplists:get_value(version_id_marker, Options)}],
-%    Doc = s3_xml_request(Config, get, BucketName, "/", "versions", Params, <<>>, []),
-%    Attributes = [{name, "Name", text},
-%                  {prefix, "Prefix", text},
-%                  {key_marker, "KeyMarker", text},
-%                  {next_key_marker, "NextKeyMarker", optional_text},
-%                  {version_id_marker, "VersionIdMarker", text},
-%                  {next_version_id_marker, "NextVersionIdMarker", optional_text},
-%                  {max_keys, "MaxKeys", integer},
-%                  {is_truncated, "Istruncated", boolean},
-%                  {versions, "Version", fun extract_versions/1},
-%                  {delete_markers, "DeleteMarker", fun extract_delete_markers/1}],
-%    ms3_xml:decode(Attributes, Doc).
 
 % toggle port on host header (add port or remove it)
 % is this still necessary?
@@ -924,12 +526,6 @@ get_url_port(Config) ->
         _ ->
             Url1
     end.
-%    case string:split(Url1, ":", all) of
-%        [_scheme, _host, _port] ->
-%            Url1;
-%        [_scheme, _host] ->
-%            Url1 ++ ":80"
-%    end.
 
 list_object_versions(BucketName, Options, Config) ->
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
@@ -967,10 +563,6 @@ extract_bucket(Node) ->
 %                 iolist(),
 %                 proplists:proplist(),
 %                 [{string(), string()}]) -> [{'version_id', _}, ...].
-%
-%put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
-%    put_object(BucketName, Key, Value, Options, HTTPHeaders, default_config()).
-
 % dunno if this is used or not (no Config)
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
@@ -981,117 +573,25 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %                 proplists:proplist(),
 %                 [{string(), string()}],
 %                 config()) -> [{'version_id', _}, ...].
-%
-%put_object(BucketName, Key, Value, Options, HTTPHeaders, Config)
-%  when is_list(BucketName), is_list(Key), is_list(Value) orelse is_binary(Value),
-%       is_list(Options) ->
-%    ContentType = proplists:get_value("content-type", HTTPHeaders, "application/octet_stream"),
-%    FilteredHTTPHeaders = proplists:delete("content-type", HTTPHeaders),
-%
-%    RequestHeaders = [{"x-amz-acl", encode_acl(proplists:get_value(acl, Options))}|FilteredHTTPHeaders]
-%        ++ [{["x-amz-meta-"|string:to_lower(MKey)], MValue} ||
-%               {MKey, MValue} <- proplists:get_value(meta, Options, [])],
-%    POSTData = {iolist_to_binary(Value), ContentType},
-%    {Headers, _Body} = s3_request(Config, put, BucketName, [$/|Key], "", [],
-%                                  POSTData, RequestHeaders),
-%    [{version_id, proplists:get_value("x-amz-version-id", Headers, "null")}].
-
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
 %-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
-%
-%set_object_acl(BucketName, Key, ACL) ->
-%    set_object_acl(BucketName, Key, ACL, default_config()).
-
 set_object_acl(BucketName, Key, ACL) ->
     erlcloud_s3:set_object_acl(BucketName, Key, ACL).
 
 %-spec set_object_acl(string(), string(), proplists:proplist(), config()) -> ok.
-%
-%set_object_acl(BucketName, Key, ACL, Config)
-%  when is_list(BucketName), is_list(Key), is_list(ACL) ->
-%    Id = proplists:get_value(id, proplists:get_value(owner, ACL)),
-%    DisplayName = proplists:get_value(display_name, proplists:get_value(owner, ACL)),
-%    ACL1 = proplists:get_value(access_control_list, ACL),
-%    XML = {'AccessControlPolicy',
-%           [{'Owner', [{'ID', [Id]}, {'DisplayName', [DisplayName]}]},
-%            {'AccessControlList', encode_grants(ACL1)}]},
-%    XMLText = list_to_binary(xmerl:export_simple([XML], xmerl_xml)),
-%    s3_simple_request(Config, put, BucketName, [$/|Key], "acl", [], XMLText, []).
-
 set_object_acl(BucketName, Key, ACL, Config) ->
     erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config).
 
 %-spec set_bucket_attribute(string(),
 %                           settable_bucket_attribute_name(),
 %                           'bucket_owner' | 'requester' | [any()]) -> ok.
-%
-%set_bucket_attribute(BucketName, AttributeName, Value) ->
-%    set_bucket_attribute(BucketName, AttributeName, Value, default_config()).
-
 set_bucket_attribute(BucketName, AttributeName, Value) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value).
 
 %-spec set_bucket_attribute(string(), settable_bucket_attribute_name(),
 %                           'bucket_owner' | 'requester' | [any()], config()) -> ok.
-%
-%set_bucket_attribute(BucketName, AttributeName, Value, Config)
-%  when is_list(BucketName) ->
-%    {Subresource, XML} =
-%        case AttributeName of
-%            acl ->
-%                ACLXML = {'AccessControlPolicy',
-%                          [{'Owner',
-%                            [{'ID', [proplists:get_value(id, proplists:get_value(owner, Value))]},
-%                             {'DisplayName', [proplists:get_value(display_name, proplists:get_value(owner, Value))]}]},
-%                           {'AccessControlList', encode_grants(proplists:get_value(access_control_list, Value))}]},
-%                {"acl", ACLXML};
-%            logging ->
-%                LoggingXML = {'BucketLoggingStatus',
-%                              [{xmlns, ?XMLNS_S3}],
-%                              case proplists:get_bool(enabled, Value) of
-%                                  true ->
-%                                      [{'LoggingEnabled',
-%                                        [
-%                                         {'TargetBucket', [proplists:get_value(target_bucket, Value)]},
-%                                         {'TargetPrefix', [proplists:get_value(target_prefix, Value)]},
-%                                         {'TargetGrants', encode_grants(proplists:get_value(target_grants, Value, []))}
-%                                        ]
-%                                       }];
-%                                  false ->
-%                                      []
-%                              end},
-%                {"logging", LoggingXML};
-%            request_payment ->
-%                PayerName = case Value of
-%                                requester -> "Requester";
-%                                bucket_owner -> "BucketOwner"
-%                            end,
-%                RPXML = {'RequestPaymentConfiguration', [{xmlns, ?XMLNS_S3}],
-%                         [
-%                          {'Payer', [PayerName]}
-%                         ]
-%                        },
-%                {"requestPayment", RPXML};
-%            versioning ->
-%                Status = case proplists:get_value(status, Value) of
-%                             suspended -> "Suspended";
-%                             enabled -> "Enabled"
-%                         end,
-%                MFADelete = case proplists:get_value(mfa_delete, Value, disabled) of
-%                                enabled -> "Enabled";
-%                                disabled -> "Disabled"
-%                            end,
-%                VersioningXML = {'VersioningConfiguration', [{xmlns, ?XMLNS_S3}],
-%                                 [{'Status', [Status]},
-%                                  {'MfaDelete', [MFADelete]}]},
-%                {"versioning", VersioningXML}
-%        end,
-%    POSTData = list_to_binary(xmerl:export_simple([XML], xmerl_xml)),
-%    Headers = [{"content-type", "application/xml"}],
-%    s3_simple_request(Config, put, BucketName, "/", Subresource, [], POSTData, Headers).
-
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
 
