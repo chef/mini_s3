@@ -132,52 +132,54 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
     %   Host   == scheme://domain:port | scheme://domain | domain:port | domain
     %   scheme == http | https
 
-    % crude ipv4/6 detection
-    {Ipv, Host} = case string:tokens(Host0, "[]") of
-              [Host0] -> Domainx = "", {4, Host0};
-              [Schemex,    Domainx, Portx] -> {6, lists:flatten([Schemex,    $x, Portx])};
-              ["http://",  Domainx       ] -> {6, lists:flatten(["http://",  $x       ])};
-              ["https://", Domainx       ] -> {6, lists:flatten(["https://", $x       ])};
-              [            Domainx, Portx] -> {6, lists:flatten([            $x, Portx])};
-              [            Domainx       ] -> {6, "x"}
-    end,
-
+    % ipv4/6 detection
+    {Ipv, Host} =
+        case string:tokens(Host0, "[]") of
+            [Host0] ->
+                % ipv4
+                Domain0 = "",
+                {4, Host0};
+            % ipv6
+            [Scheme0,    Domain0, Port0] -> {6, lists:flatten([Scheme0,    $x, Port0])};
+            ["http://",  Domain0       ] -> {6, lists:flatten(["http://",  $x       ])};
+            ["https://", Domain0       ] -> {6, lists:flatten(["https://", $x       ])};
+            [            Domain0, Port0] -> {6, lists:flatten([            $x, Port0])};
+            [            Domain0       ] -> {6, "x"}
+        end,
 
     case string:split(Host, ":", all) of
         % Host == scheme://domain:port
-        [Scheme0, [$/, $/ | Domain] | [Port0]] ->
-            Scheme = Scheme0 ++ "://";
+        [Scheme1, [$/, $/ | Domain1] | [Port1]] ->
+            Scheme = Scheme1 ++ "://";
         % Host == scheme://domain
-        [Scheme0, [$/, $/ | Domain]] ->
-            Scheme = Scheme0 ++ "://",
-            Port0  = undefined;
+        [Scheme1, [$/, $/ | Domain1]] ->
+            Scheme = Scheme1 ++ "://",
+            Port1  = undefined;
         % Host == domain:port
-        [Domain, Port0] ->
-            %Scheme = case Port0 of "443" -> "https://"; _ -> "http://" end;
-            Scheme = case Port0 of "80" -> "http://"; _ -> "https://" end;
+        [Domain1, Port1] ->
+            Scheme = case Port1 of "80" -> "http://"; _ -> "https://" end;
         % Host == domain
-        [Domain] ->
+        [Domain1] ->
             Scheme = "https://",
-            Port0  = undefined
+            Port1  = undefined
     end,
     Port =
-        case Port0 of
+        case Port1 of
             undefined ->
                 case Scheme of
                     "https://" -> 443;
                     "http://"  -> 80
                 end;
             _ ->
-                list_to_integer(Port0)
+                list_to_integer(Port1)
         end,
+    Domain = case Ipv of 4 -> Domain1; _ -> "[" ++ Domain0 ++ "]" end,
     %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf...
     %% s3 wants bucketname before host (or it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443...
     %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style
     %% requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
-Domainz = case Ipv of 4 -> Domain; _ -> "[" ++ Domainx ++ "]" end,
-    %% erlcloud seems to url-encode paths before sending requests
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domainz, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 %-spec new(string(), string(), string(), bucket_access_type()) -> config().
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
