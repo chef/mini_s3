@@ -433,7 +433,8 @@ format_s3_uri(Config, Host) ->
 %% Consult the official documentation (linked above) if you wish to
 %% augment this function's capabilities.
 
--spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+%-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+-spec s3_url(atom(), string(), string(), integer(),
              proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
@@ -443,7 +444,8 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
     iolist_to_binary(RequestURI).
 
--spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+%-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+-spec s3_url(atom(), string(), string(), integer(),
              proplists:proplist(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
        Config = #aws_config{access_key_id=AccessKey,
