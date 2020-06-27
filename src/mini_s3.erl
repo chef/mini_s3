@@ -23,10 +23,6 @@
 
 -behavior(application).
 
-%%%%%%%%%
--compile([export_all, nowarn_export_all]).
-%%%%%%%%%
-
 -export([%new/2,
          new/3,
          new/4,
@@ -75,10 +71,12 @@
          %make_signed_url_authorization/5,
          universaltime/0]).
 
+-compile([export_all, nowarn_export_all]).
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
 %-include_lib("eunit/include/eunit.hrl").
 -endif.
+
 -include_lib("eunit/include/eunit.hrl").
 
 -include("internal.hrl").
@@ -357,26 +355,26 @@ retrieve_header_value(Header, AllHeaders) ->
 %% TimeToLive, which is the number of seconds from "right now" that a request should be
 %% valid. If the argument provided is a tuple, we use the interval logic that will only
 %% result in Interval / 86400 unique expiration times per day
--spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
-                             Expires::non_neg_integer().
-expiration_time({TimeToLive, Interval}) ->
-    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
-    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
-    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
-    %% How many seconds are we into today?
-    TodayOffset = NowSecs - MidnightSecs,
-    Buffer = case (TodayOffset + Interval) >= ?DAY of
-        %% true if we're in the day's last interval, don't let it spill into tomorrow
-        true ->
-            ?DAY - TodayOffset;
-        %% false means this interval is bounded by today
-        _ ->
-            Interval - (TodayOffset rem Interval)
-    end,
-    NowSecs + Buffer - ?EPOCH + TimeToLive;
-expiration_time(TimeToLive) ->
-    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
-    (Now - ?EPOCH) + TimeToLive.
+%-spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
+%                             Expires::non_neg_integer().
+%expiration_time({TimeToLive, Interval}) ->
+%    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
+%    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
+%    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
+%    %% How many seconds are we into today?
+%    TodayOffset = NowSecs - MidnightSecs,
+%    Buffer = case (TodayOffset + Interval) >= ?DAY of
+%        %% true if we're in the day's last interval, don't let it spill into tomorrow
+%        true ->
+%            ?DAY - TodayOffset;
+%        %% false means this interval is bounded by today
+%        _ ->
+%            Interval - (TodayOffset rem Interval)
+%    end,
+%    NowSecs + Buffer - ?EPOCH + TimeToLive;
+%expiration_time(TimeToLive) ->
+%    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
+%    (Now - ?EPOCH) + TimeToLive.
 
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
@@ -433,9 +431,13 @@ format_s3_uri(Config, Host) ->
 %% Consult the official documentation (linked above) if you wish to
 %% augment this function's capabilities.
 
-%-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
--spec s3_url(atom(), string(), string(), integer(),
+-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), aws_config()) -> binary().
+s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
+    ?debugFmt("~nmini_s3:s3_url", []),
+    {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
+    ?debugFmt("~nexpire window: ~p", [{Date, Lifetime}]),
+    s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
                         secret_access_key=SecretKey})
@@ -455,6 +457,33 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
 
     iolist_to_binary(RequestURI).
+
+%       PAST       PRESENT      FUTURE
+%                     |
+% -----+-----+-----+--+--+-----+-----+-----+--
+%      |     |     |  |  |     |     |     |   TIME
+% -----+-----+-----+--+--+-----+-----+-----+--
+%                  |     |
+%   x-amz-date ----+     +---- x-amz-expires
+%
+% 1) segment all of time into 'windows' of width expiry-window-size
+% 2) align x-amz-date to nearest expiry-window boundary less than present time
+% 3) calculate x-amz-expires by:
+%    align x-amz-expires to nearest expiry-window boundary greater than present time
+%    while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
+% TTL < ?
+% 0 < ExpireWinSiz < ?
+-spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {non_neg_integer(), non_neg_integer()}.
+make_expire_win(TTL, ExpireWinSiz) ->
+    UniversalTime = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
+    XAmzDateSec = UniversalTime div ExpireWinSiz * ExpireWinSiz,
+    ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
+%    XAmzExpires = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)) * ExpireWinSiz + XAmzDateSec,
+    XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
+    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), XAmzExpires}.
+
+% XAmzDateSec < XAmzExpires
+% XAmzExpires - XAmzDateSec = N * ExpireWinSiz
 
 % not sure if this is used? probably would need to redirect to the one with a config and use a default config.
 %-spec get_object(string(), string(), proplists:proplist()) ->
