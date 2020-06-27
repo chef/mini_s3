@@ -57,52 +57,52 @@ format_s3_uri_test_() ->
 -define(DAY, 86400).
 -define(HOUR, 3600).
 
-expiration_time_test_() ->
-    Tests = [
-             %% {TTLSecs, IntervalSecs, MockedTimestamp, ExpectedExpiry}
-             {{3600, 900}, {{2015,1,27},{0,0,0}}  , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,0,10}} , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,1,0}}  , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,1,10}} , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,3,0}}  , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,3,30}} , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,5,0}}  , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,10,0}} , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,14,0}} , (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,14,59}}, (?MIDNIGHT + ?HOUR + 900)},
-             {{3600, 900}, {{2015,1,27},{0,15,0}} , (?MIDNIGHT + ?HOUR + 1800)},
-             {{3600, 900}, {{2015,1,27},{0,15,1}} , (?MIDNIGHT + ?HOUR + 1800)},
-             {{3600, 900}, {{2015,1,27},{0,29,59}}, (?MIDNIGHT + ?HOUR + 1800)},
-             {{3600, 900}, {{2015,1,27},{0,30,0}} , (?MIDNIGHT + ?HOUR + 2700)},
-             {{3600, 900}, {{2015,1,27},{0,44,59}}, (?MIDNIGHT + ?HOUR + 2700)},
-             {{3600, 900}, {{2015,1,27},{0,45,0}} , (?MIDNIGHT + ?HOUR + 3600)},
-             {{3600, 900}, {{2015,1,27},{0,59,59}}, (?MIDNIGHT + ?HOUR + 3600)},
-             {{3600, 900}, {{2015,1,27},{1,0,0}}  , (?MIDNIGHT + ?HOUR + 4500)},
-
-             %% There are 86400 seconds in a day. What happens if the interval is not evenly
-             %% divisible in that time? Take 7m for example. 420 secs goes into a day 205.71
-             %% times which is a remainder of 300 seconds. We should make sure that we
-             %% restart the intervals at midnight, so we don't have day to day drift
-
-             {{3600, 420}, {{2015,1,27},{23,59,0}} , (?MIDNIGHT + ?DAY + ?HOUR)},
-             {{3600, 420}, {{2015,1,28},{0,0,0}}   , (?MIDNIGHT + ?DAY + ?HOUR + 420)},
-
-             %% Let's test the old functionality too
-             {3600, {{2015,1,27},{0,0,0}} , (?MIDNIGHT + ?HOUR)},
-             {3600, {{2015,1,27},{0,0,1}} , (?MIDNIGHT + ?HOUR + 1)},
-             {3600, {{2015,1,27},{0,1,1}} , (?MIDNIGHT + ?HOUR + 61)},
-             {3600, {{2015,1,28},{0,1,1}} , (?MIDNIGHT + ?DAY + ?HOUR + 61)}
-            ],
-
-    TestFun = fun(Arg, MockedTime) ->
-                      meck:new(mini_s3, [unstick, passthrough]),
-                      meck:expect(mini_s3, universaltime, fun() -> MockedTime end),
-                      Expiry = mini_s3:expiration_time(Arg),
-                      meck:unload(mini_s3),
-                      Expiry
-              end,
-    [ ?_assertEqual(Expect, TestFun(Arg, MockedTimestamp))
-      || {Arg, MockedTimestamp, Expect} <- Tests].
+%expiration_time_test_() ->
+%    Tests = [
+%             %% {TTLSecs, IntervalSecs, MockedTimestamp, ExpectedExpiry}
+%             {{3600, 900}, {{2015,1,27},{0,0,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,0,10}} , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,1,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,1,10}} , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,3,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,3,30}} , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,5,0}}  , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,10,0}} , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,14,0}} , (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,14,59}}, (?MIDNIGHT + ?HOUR + 900)},
+%             {{3600, 900}, {{2015,1,27},{0,15,0}} , (?MIDNIGHT + ?HOUR + 1800)},
+%             {{3600, 900}, {{2015,1,27},{0,15,1}} , (?MIDNIGHT + ?HOUR + 1800)},
+%             {{3600, 900}, {{2015,1,27},{0,29,59}}, (?MIDNIGHT + ?HOUR + 1800)},
+%             {{3600, 900}, {{2015,1,27},{0,30,0}} , (?MIDNIGHT + ?HOUR + 2700)},
+%             {{3600, 900}, {{2015,1,27},{0,44,59}}, (?MIDNIGHT + ?HOUR + 2700)},
+%             {{3600, 900}, {{2015,1,27},{0,45,0}} , (?MIDNIGHT + ?HOUR + 3600)},
+%             {{3600, 900}, {{2015,1,27},{0,59,59}}, (?MIDNIGHT + ?HOUR + 3600)},
+%             {{3600, 900}, {{2015,1,27},{1,0,0}}  , (?MIDNIGHT + ?HOUR + 4500)},
+%
+%             %% There are 86400 seconds in a day. What happens if the interval is not evenly
+%             %% divisible in that time? Take 7m for example. 420 secs goes into a day 205.71
+%             %% times which is a remainder of 300 seconds. We should make sure that we
+%             %% restart the intervals at midnight, so we don't have day to day drift
+%
+%             {{3600, 420}, {{2015,1,27},{23,59,0}} , (?MIDNIGHT + ?DAY + ?HOUR)},
+%             {{3600, 420}, {{2015,1,28},{0,0,0}}   , (?MIDNIGHT + ?DAY + ?HOUR + 420)},
+%
+%             %% Let's test the old functionality too
+%             {3600, {{2015,1,27},{0,0,0}} , (?MIDNIGHT + ?HOUR)},
+%             {3600, {{2015,1,27},{0,0,1}} , (?MIDNIGHT + ?HOUR + 1)},
+%             {3600, {{2015,1,27},{0,1,1}} , (?MIDNIGHT + ?HOUR + 61)},
+%             {3600, {{2015,1,28},{0,1,1}} , (?MIDNIGHT + ?DAY + ?HOUR + 61)}
+%            ],
+%
+%    TestFun = fun(Arg, MockedTime) ->
+%                      meck:new(mini_s3, [unstick, passthrough]),
+%                      meck:expect(mini_s3, universaltime, fun() -> MockedTime end),
+%                      Expiry = mini_s3:expiration_time(Arg),
+%                      meck:unload(mini_s3),
+%                      Expiry
+%              end,
+%    [ ?_assertEqual(Expect, TestFun(Arg, MockedTimestamp))
+%      || {Arg, MockedTimestamp, Expect} <- Tests].
 
 %s3_uri_test_() ->
 %%    Config = #config{
@@ -134,6 +134,20 @@ expiration_time_test_() ->
 %
 %    [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
 
+% this should be make_expire_win_test(), but timeout doesn't seem to work unless main_test_()
+main_test_() ->
+    {timeout, 60,
+        fun() ->
+                % 10 expiration windows of size 1sec created 1sec apart should be 10 unique windows (i.e. no duplicates)
+                Set1 = [{timer:sleep(1000), mini_s3:make_expire_win(0, 1)} || _ <- [1,2,3,4,5,6,7,8,9,0]],
+                10   = length(sets:to_list(sets:from_list(Set1))),
+
+                % 100 expiration windows of large size created quickly should be mostly duplicates
+                Set2 = [mini_s3:make_expire_win(0, 1000) || _ <- lists:duplicate(100, 0)],
+                2   >= length(sets:to_list(sets:from_list(Set2)))
+        end
+    }.
+    
 new_test() ->
     % scheme://host:port
     Config0 = mini_s3:new("key", "secret", "http://host:80"),
