@@ -403,7 +403,6 @@ format_s3_uri(Config, Host) ->
         %http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
         http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
-        %virtual_hosted ->
         vhost ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",
                            if_not_empty(Host, [Host, $.]),
