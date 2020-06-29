@@ -79,7 +79,9 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+% is this used?  TODO: try removing
 -include("internal.hrl").
+
 -include_lib("xmerl/include/xmerl.hrl").
 
 -include("erlcloud_aws.hrl").
@@ -457,6 +459,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
 
     iolist_to_binary(RequestURI).
 
+%-----------------------------------------------------------------------------------
 %       PAST       PRESENT      FUTURE
 %                     |
 % -----+-----+-----+--+--+-----+-----+-----+--
@@ -470,17 +473,17 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
 % 3) calculate x-amz-expires by:
 %    align x-amz-expires to nearest expiry-window boundary greater than present time
 %    while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
-% TTL < ?
-% 0 < ExpireWinSiz < ?
+%-----------------------------------------------------------------------------------
 -spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {non_neg_integer(), non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) ->
     UniversalTime = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
     XAmzDateSec = UniversalTime div ExpireWinSiz * ExpireWinSiz,
     ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
-%    XAmzExpires = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)) * ExpireWinSiz + XAmzDateSec,
     XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), XAmzExpires}.
 
+% TTL < ?
+% 0 < ExpireWinSiz < ?
 % XAmzDateSec < XAmzExpires
 % XAmzExpires - XAmzDateSec = N * ExpireWinSiz
 
