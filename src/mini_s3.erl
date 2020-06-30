@@ -23,7 +23,7 @@
 
 -behavior(application).
 
--export([%new/2,
+-export([
          new/3,
          new/4,
          new/5,
@@ -33,7 +33,6 @@
          delete_bucket/2,
          get_bucket_attribute/2,
          get_bucket_attribute/3,
-         %list_buckets/0,
          list_buckets/1,
          set_bucket_attribute/3,
          set_bucket_attribute/4,
@@ -54,7 +53,6 @@
          get_object_acl/4,
          get_object_torrent/2,
          get_object_torrent/3,
-         %get_object_metadata/3,
          get_object_metadata/4,
          get_host_toggleport/2,
          get_url_noport/1,
@@ -68,16 +66,12 @@
 
 -export([manual_start/0,
          make_authorization/10,
-         %make_signed_url_authorization/5,
          universaltime/0]).
 
--compile([export_all, nowarn_export_all]).
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
-%-include_lib("eunit/include/eunit.hrl").
--endif.
-
 -include_lib("eunit/include/eunit.hrl").
+-endif.
 
 % is this used?  TODO: try removing
 -include("internal.hrl").
@@ -86,7 +80,6 @@
 
 -include("erlcloud_aws.hrl").
 
-%-export_type([config/0,
 -export_type([aws_config/0,
               bucket_attribute_name/0,
               bucket_acl/0,
@@ -191,10 +184,6 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
     Config#aws_config{
-        %access_key_id=AccessKeyID,
-        %secret_access_key=SecretAccessKey,
-        %s3_url=Host,
-        %ssl_options=SslOpts,
         s3_bucket_access_method=BucketAccessMethod,
         s3_bucket_after_host=BucketAfterHost
     }.
@@ -208,7 +197,7 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 %   new(AccessKeyID::string(), SecretAccessKey::string(), Host::string(), Port::non_neg_integer()) -> aws_config()
 % for now, attempting conversion to new/4
 %
-% this is called in oc_erchef app in:
+% this is called in oc_erchef in:
 %   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
@@ -278,10 +267,9 @@ list_objects(BucketName, Options) ->
 %-spec list_objects(string(), proplists:proplist(), config()) -> proplists:proplist().
 list_objects(BucketName, Options, Config) ->
     % wip attempt to fix ct tests
-    List0 = erlcloud_s3:list_objects(BucketName, Options, Config),
-    [{name, Name} | Rest] = List0,
-    List1 = [{name, http_uri:decode(Name)} | Rest],
-    List1.
+    List = erlcloud_s3:list_objects(BucketName, Options, Config),
+    [{name, Name} | Rest] = List,
+    [{name, http_uri:decode(Name)} | Rest].
 
 extract_contents(Nodes) ->
     Attributes = [{key, "Key", text},
@@ -349,35 +337,6 @@ to_string(S) when is_list(S) ->
 retrieve_header_value(Header, AllHeaders) ->
     proplists:get_value(Header, AllHeaders, "").
 
-%% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
--define(EPOCH, 62167219200).
--define(DAY, 86400).
-
-%% @doc Number of seconds since the Epoch that a request can be valid for, specified by
-%% TimeToLive, which is the number of seconds from "right now" that a request should be
-%% valid. If the argument provided is a tuple, we use the interval logic that will only
-%% result in Interval / 86400 unique expiration times per day
-%-spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
-%                             Expires::non_neg_integer().
-%expiration_time({TimeToLive, Interval}) ->
-%    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
-%    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
-%    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
-%    %% How many seconds are we into today?
-%    TodayOffset = NowSecs - MidnightSecs,
-%    Buffer = case (TodayOffset + Interval) >= ?DAY of
-%        %% true if we're in the day's last interval, don't let it spill into tomorrow
-%        true ->
-%            ?DAY - TodayOffset;
-%        %% false means this interval is bounded by today
-%        _ ->
-%            Interval - (TodayOffset rem Interval)
-%    end,
-%    NowSecs + Buffer - ?EPOCH + TimeToLive;
-%expiration_time(TimeToLive) ->
-%    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
-%    (Now - ?EPOCH) + TimeToLive.
-
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
 universaltime() ->
@@ -396,13 +355,11 @@ format_s3_uri(Config, Host) ->
     %S3Url = Config#aws_config.s3_scheme ++ Config#aws_config.s3_host, % ++ ":" ++ integer_to_list(Config#aws_config.s3_port),
     S3Url = Config#aws_config.s3_host,
     Scheme0 = Config#aws_config.s3_scheme,
-    % if scheme doesn't have ://, add it . if it does, leave it alone.  this was necessary because both
-    % ways were being passed-in, but weren't being handled, causing errors
+    % if scheme doesn't have ://, add it. if it does, leave it alone.
     Scheme = case string:split(Scheme0, "://", leading) of [Scheme0] -> Scheme0++"://"; [_, []] -> Scheme0 end,
     Port0 = integer_to_list(Config#aws_config.s3_port),
     BAccessType = Config#aws_config.s3_bucket_access_method,
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        %http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
         http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
         vhost ->
@@ -460,6 +417,9 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
+% implementation of expiration windows for sigv4
+% for making batches of cacheable presigned URLs
+%
 %       PAST       PRESENT      FUTURE
 %                     |
 % -----+-----+-----+--+--+-----+-----+-----+--
@@ -470,8 +430,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
 %
 % 1) segment all of time into 'windows' of width expiry-window-size
 % 2) align x-amz-date to nearest expiry-window boundary less than present time
-% 3) calculate x-amz-expires by:
-%    align x-amz-expires to nearest expiry-window boundary greater than present time
+% 3) align x-amz-expires to nearest expiry-window boundary greater than present time
 %    while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
 %-----------------------------------------------------------------------------------
 -spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {non_neg_integer(), non_neg_integer()}.
@@ -482,12 +441,7 @@ make_expire_win(TTL, ExpireWinSiz) ->
     XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), XAmzExpires}.
 
-% TTL < ?
-% 0 < ExpireWinSiz < ?
-% XAmzDateSec < XAmzExpires
-% XAmzExpires - XAmzDateSec = N * ExpireWinSiz
-
-% not sure if this is used? probably would need to redirect to the one with a config and use a default config.
+% not sure if this is used? doesn't use config.
 %-spec get_object(string(), string(), proplists:proplist()) ->
 %                        proplists:proplist().
 get_object(BucketName, Key, Options) ->
@@ -509,15 +463,9 @@ get_object_acl(BucketName, Key, Config) ->
 get_object_acl(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object_acl(BucketName, Key, Options, Config).
 
-% testing this code pursuant to investigation of pedant test 500s in checking file checksums
-% even if this works, will it break what was already working (retest pointing oc-erchef to s3 vs bookshelf)?
-
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object_metadata(BucketName, Key, Options, Config) ->
-    % TODO: do a search first to make sure this header isn't there before adding (proplists:get_value)
-    %Options = [{"x-amz-content-sha256", "UNSIGNED-PAYLOAD"}, {"content-length", "0"}, {"x-amz-decoded-content-length", "0"} | Options0],
-    Z = erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config),
-    Z.
+    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
@@ -535,7 +483,6 @@ list_object_versions(BucketName, Options) ->
     erlcloud_s3:list_object_versions(BucketName, Options).
 
 % toggle port on host header (add port or remove it)
-% is this still necessary?
 -spec get_host_toggleport(string(), aws_config()) -> string().
 get_host_toggleport(Host, Config) ->
     case string:split(Host, ":", trailing) of
@@ -553,7 +500,6 @@ get_host_toggleport(Host, Config) ->
     end.
 
 % construct url (scheme://host) from config
-% is this still necessary?
 -spec get_url_noport(aws_config()) -> string().
 get_url_noport(Config) ->
     UrlRaw  = get_url_port(Config),
@@ -561,7 +507,6 @@ get_url_noport(Config) ->
     string:trim(UrlTemp, trailing, ":").
 
 % construct url (scheme://host:port) from config
-% is this still necessary?
 -spec get_url_port(aws_config()) -> string().
 get_url_port(Config) ->
     Url0 = erlcloud_s3:get_object_url("", "", Config),
@@ -610,7 +555,7 @@ extract_bucket(Node) ->
 %                 iolist(),
 %                 proplists:proplist(),
 %                 [{string(), string()}]) -> [{'version_id', _}, ...].
-% dunno if this is used or not (no Config)
+% is this used? (no Config)
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
@@ -706,14 +651,8 @@ s3_request(Config = #config{access_key_id=AccessKey,
                               end, Headers),
     Date = httpd_util:rfc1123_date(erlang:localtime()),
     EscapedPath = ms3_http:url_encode_loose(Path),
-%    {_StringToSign, Authorization} =
-%        make_authorization(AccessKey, SecretKey, Method,
-%                           ContentMD5, ContentType,
-%                           Date, AmzHeaders, Host,
-%                           EscapedPath, Subresource),
     FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-%    RequestHeaders0 = [{"date", Date}, {"authorization", Authorization}|FHeaders] ++
-RequestHeaders0 = FHeaders ++
+    RequestHeaders0 = FHeaders ++
         case ContentMD5 of
             "" -> [];
             _ -> [{"content-md5", binary_to_list(ContentMD5)}]
@@ -724,19 +663,10 @@ RequestHeaders0 = FHeaders ++
                           false ->
                               [{"Content-Type", ContentType} | RequestHeaders0]
                       end,
-%    RequestURI = lists:flatten([format_s3_uri(Config, Host),
-%                                EscapedPath,
-%                                if_not_empty(Subresource, [$?, Subresource]),
-%                                if
-%                                    Params =:= [] -> "";
-%                                    Subresource =:= "" -> [$?, ms3_http:make_query_string(Params)];
-%                                    true -> [$&, ms3_http:make_query_string(Params)]
-%                                end]),
     IbrowseOpts = [ {ssl_options, SslOpts} ],
-%{Headers, _Body} = s3_request(Config, head, BucketName, [$/|Key], Subresource, [], <<>>, RequestHeaders),
-[$/ | Key] = Path,
-Lifetime = 900,
-RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
+    [$/ | Key] = Path,
+    Lifetime = 900,
+    RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
     Response = case Method of
                    get ->
                        ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
@@ -782,18 +712,15 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
-%default_config() ->
-%    Defaults =  envy:get(mini_s3, s3_defaults, list),
-%    case proplists:is_defined(key_id, Defaults) andalso
-%        proplists:is_defined(secret_access_key, Defaults) of
-%        true ->
-%            {key_id, Key} = proplists:lookup(key_id, Defaults),
-%            {secret_access_key, AccessKey} =
-%                proplists:lookup(secret_access_key, Defaults),
-%            #config{access_key_id=Key, secret_access_key=AccessKey};
-%        false ->
-%            throw({error, missing_s3_defaults})
-%    end.
-
 default_config() ->
-    #aws_config{}. 
+    Defaults =  envy:get(mini_s3, s3_defaults, list),
+    case proplists:is_defined(key_id, Defaults) andalso
+        proplists:is_defined(secret_access_key, Defaults) of
+        true ->
+            {key_id, Key} = proplists:lookup(key_id, Defaults),
+            {secret_access_key, AccessKey} =
+                proplists:lookup(secret_access_key, Defaults),
+            #aws_config{access_key_id=Key, secret_access_key=AccessKey};
+        false ->
+            throw({error, missing_s3_defaults})
+    end.
