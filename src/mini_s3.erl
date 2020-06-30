@@ -75,39 +75,75 @@
 
 % is this used?  TODO: try removing
 -include("internal.hrl").
-
 -include_lib("xmerl/include/xmerl.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
 
--include("erlcloud_aws.hrl").
+
+-type s3_bucket_attribute_name() :: acl
+                                  | location
+                                  | logging
+                                  | request_payment
+                                  | versioning
+                                  | notification.
+
+-type s3_bucket_acl() :: private
+                       | public_read
+                       | public_read_write
+                       | authenticated_read
+                       | bucket_owner_read
+                       | bucket_owner_full_control.
+
+-type s3_location_constraint() :: none
+                                | us_west_1
+                                | eu
+                                | 'us-east-1'
+                                | 'us-east-2'
+                                | 'us-west-1'
+                                | 'us-west-2'
+                                | 'ca-central-1'
+                                | 'eu-west-1'
+                                | 'eu-west-2'
+                                | 'eu-west-3'
+                                | 'eu-north-1'
+                                | 'eu-central-1'
+                                | 'ap-south-1'
+                                | 'ap-southeast-1'
+                                | 'ap-southeast-2'
+                                | 'ap-northeast-1'
+                                | 'ap-northeast-2'
+                                | 'ap-northeast-3'
+                                | 'ap-east-1'
+                                | 'me-south-1'
+                                | 'sa-east-1'.
 
 -export_type([aws_config/0,
-              bucket_attribute_name/0,
-              bucket_acl/0,
-              location_constraint/0]).
+              s3_bucket_attribute_name/0,
+              s3_bucket_acl/0,
+              s3_location_constraint/0]).
 
 -type bucket_access_type() :: vhost | path.
 
--type bucket_attribute_name() :: acl
-                               | location
-                               | logging
-                               | request_payment
-                               | versioning.
+%-type bucket_attribute_name() :: acl
+%                               | location
+%                               | logging
+%                               | request_payment
+%                               | versioning.
 
--type settable_bucket_attribute_name() :: acl
-                                        | logging
-                                        | request_payment
-                                        | versioning.
+%-type settable_bucket_attribute_name() :: acl
+%                                        | logging
+%                                        | request_payment
+%                                        | versioning.
 
--type bucket_acl() :: private
-                    | public_read
-                    | public_read_write
-                    | authenticated_read
-                    | bucket_owner_read
-                    | bucket_owner_full_control.
+%-type bucket_acl() :: private
+%                    | public_read
+%                    | public_read_write
+%                    | authenticated_read
+%                    | bucket_owner_read
+%                    | bucket_owner_full_control.
 
--type location_constraint() :: none
-                             | us_west_1
-                             | eu.
+%-type location_constraint() :: none
+%                             | us_west_1
+%                             | eu.
 
 %% This is a helper function that exists to make development just a
 %% wee bit easier
@@ -174,11 +210,10 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
     %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
-%-spec new(string(), string(), string(), bucket_access_type()) -> config().
--spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
-
 % erlcloud wants accesskey, secretaccesskey, host, port.
-% mini_s3 wants accesskey, secretaccesskey, host, bucketaccesstype
+% mini_s3  wants accesskey, secretaccesskey, host, bucketaccesstype
+%-spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
+-spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
@@ -188,18 +223,16 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
         s3_bucket_after_host=BucketAfterHost
     }.
 
-%-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist()) -> config().
--spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
-
 % erlcloud has no new/5. 
-% also, arguments differ.  erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port)
+% also, arguments differ.
+% erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port
 % erlcloud's signature is:
 %   new(AccessKeyID::string(), SecretAccessKey::string(), Host::string(), Port::non_neg_integer()) -> aws_config()
 % for now, attempting conversion to new/4
 %
 % this is called in oc_erchef in:
-%   src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
-
+% src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
+-spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
 
@@ -209,14 +242,15 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options).
 
+-spec copy_object(string(), string(), string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
     erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config).
 
-%-spec create_bucket(string(), bucket_acl(), location_constraint()) -> ok.
+-spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint() | aws_config()) -> ok.
 create_bucket(BucketName, ACL, LocationConstraint) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint).
 
-%-spec create_bucket(string(), bucket_acl(), location_constraint(), config()) -> ok.
+-spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint(), aws_config()) -> ok.
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
@@ -229,44 +263,41 @@ encode_acl(bucket_owner_read)         -> "bucket-owner-read";
 encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 
 % is this used?
-%-spec delete_bucket(string()) -> ok.
+-spec delete_bucket(string()) -> ok.
 delete_bucket(BucketName) ->
     erlcloud_s3:delete_bucket(BucketName).
 
-%-spec delete_bucket(string(), config()) -> ok.
+-spec delete_bucket(string(), aws_config()) -> ok.
 delete_bucket(BucketName, Config) ->
     erlcloud_s3:delete_bucket(BucketName, Config).
 
-%-spec delete_object(string(), string()) -> proplists:proplist().
+-spec delete_object(string(), string()) -> proplists:proplist().
 delete_object(BucketName, Key) ->
     erlcloud_s3:delete_object(BucketName, Key).
 
-%-spec delete_object(string(), string(), config()) -> proplists:proplist().
+-spec delete_object(string(), string(), aws_config()) -> proplists:proplist().
 delete_object(BucketName, Key, Config) ->
     erlcloud_s3:delete_object(BucketName, Key, Config).
 
-%-spec delete_object_version(string(), string(), string()) ->
+-spec delete_object_version(string(), string(), string()) -> proplists:proplist().
 delete_object_version(BucketName, Key, Version) ->
     erlcloud_s3:delete_object_version(BucketName, Key, Version).
 
-%-spec delete_object_version(string(), string(), string(), config()) ->
+-spec delete_object_version(string(), string(), string(), aws_config()) -> proplists:proplist().
 delete_object_version(BucketName, Key, Version, Config) ->
     erlcloud_s3:delete_object_version(BucketName, Key, Version, Config).
 
-%-spec list_buckets(config()) -> proplists:proplist().
 -spec list_buckets(aws_config()) -> proplists:proplist().
-
 list_buckets(Config) ->
     Result = erlcloud_s3:list_buckets(Config),
     case proplists:lookup(buckets, Result) of none -> [{buckets, []}]; X -> [X] end.
 
-%-spec list_objects(string(), proplists:proplist()) -> proplists:proplist().
+-spec list_objects(string(), proplists:proplist()) -> proplists:proplist().
 list_objects(BucketName, Options) ->
     erlcloud_s3:list_objects(BucketName, Options).
 
-%-spec list_objects(string(), proplists:proplist(), config()) -> proplists:proplist().
+-spec list_objects(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 list_objects(BucketName, Options, Config) ->
-    % wip attempt to fix ct tests
     List = erlcloud_s3:list_objects(BucketName, Options, Config),
     [{name, Name} | Rest] = List,
     [{name, http_uri:decode(Name)} | Rest].
@@ -285,11 +316,11 @@ extract_user([Node]) ->
                   {display_name, "DisplayName", optional_text}],
     ms3_xml:decode(Attributes, Node).
 
-%-spec get_bucket_attribute(string(), bucket_attribute_name()) -> term().
+-spec get_bucket_attribute(string(), s3_bucket_attribute_name()) -> term().
 get_bucket_attribute(BucketName, AttributeName) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName).
 
-%-spec get_bucket_attribute(string(), bucket_attribute_name(), config()) -> term().
+-spec get_bucket_attribute(string(), s3_bucket_attribute_name(), aws_config()) -> term().
 get_bucket_attribute(BucketName, AttributeName, Config) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config).
 
@@ -392,9 +423,7 @@ format_s3_uri(Config, Host) ->
 -spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
              proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
-    ?debugFmt("~nmini_s3:s3_url", []),
     {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
-    ?debugFmt("~nexpire window: ~p", [{Date, Lifetime}]),
     s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
        Config = #aws_config{access_key_id=AccessKey,
@@ -442,24 +471,23 @@ make_expire_win(TTL, ExpireWinSiz) ->
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), XAmzExpires}.
 
 % not sure if this is used? doesn't use config.
-%-spec get_object(string(), string(), proplists:proplist()) ->
-%                        proplists:proplist().
+-spec get_object(string(), string(), proplists:proplist()) -> proplists:proplist().
 get_object(BucketName, Key, Options) ->
     erlcloud_s3:get_object(BucketName, Key, Options).
 
-%-spec get_object(string(), string(), proplists:proplist(), config()) ->
+-spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object(BucketName, Key, Options, Config).
 
-%-spec get_object_acl(string(), string()) -> proplists:proplist().
+-spec get_object_acl(string(), string()) -> proplists:proplist().
 get_object_acl(BucketName, Key) ->
     erlcloud_s3:get_object_acl(BucketName, Key).
 
-%-spec get_object_acl(string(), string(), proplists:proplist() | config()) -> proplists:proplist().
+-spec get_object_acl(string(), string(), proplists:proplist() | aws_config()) -> proplists:proplist().
 get_object_acl(BucketName, Key, Config) ->
     erlcloud_s3:get_object_acl(BucketName, Key, Config).
 
-%-spec get_object_acl(string(), string(), proplists:proplist(), config()) -> proplists:proplist().
+-spec get_object_acl(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object_acl(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object_acl(BucketName, Key, Options, Config).
 
@@ -470,15 +498,15 @@ get_object_metadata(BucketName, Key, Options, Config) ->
 extract_metadata(Headers) ->
     [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
 
-%-spec get_object_torrent(string(), string()) -> proplists:proplist().
+-spec get_object_torrent(string(), string()) -> proplists:proplist().
 get_object_torrent(BucketName, Key) ->
     erlcloud_s3:get_object_torrent(BucketName, Key).
 
-%-spec get_object_torrent(string(), string(), config()) -> proplists:proplist().
+-spec get_object_torrent(string(), string(), aws_config()) -> proplists:proplist().
 get_object_torrent(BucketName, Key, Config) ->
     erlcloud_s3:get_object_torrent(BucketName, Key, Config).
 
-%-spec list_object_versions(string(), proplists:proplist()) -> proplists:proplist().
+-spec list_object_versions(string(), proplists:proplist() | aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options) ->
     erlcloud_s3:list_object_versions(BucketName, Options).
 
@@ -519,6 +547,7 @@ get_url_port(Config) ->
             Url1
     end.
 
+-spec list_object_versions(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options, Config) ->
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
 
@@ -564,26 +593,29 @@ put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
 %                 iolist(),
 %                 proplists:proplist(),
 %                 [{string(), string()}],
-%                 config()) -> [{'version_id', _}, ...].
+%                 aws_config()) -> [{'version_id', _}, ...].
+-spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}], aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
-%-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
+-spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
 set_object_acl(BucketName, Key, ACL) ->
     erlcloud_s3:set_object_acl(BucketName, Key, ACL).
 
-%-spec set_object_acl(string(), string(), proplists:proplist(), config()) -> ok.
+-spec set_object_acl(string(), string(), proplists:proplist(), aws_config()) -> ok.
 set_object_acl(BucketName, Key, ACL, Config) ->
     erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config).
 
 %-spec set_bucket_attribute(string(),
 %                           settable_bucket_attribute_name(),
 %                           'bucket_owner' | 'requester' | [any()]) -> ok.
+-spec set_bucket_attribute(string(), atom(), term()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value).
 
 %-spec set_bucket_attribute(string(), settable_bucket_attribute_name(),
-%                           'bucket_owner' | 'requester' | [any()], config()) -> ok.
+%                           'bucket_owner' | 'requester' | [any()], aws_config()) -> ok.
+-spec set_bucket_attribute(string(), atom(), term(), aws_config()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
 
@@ -712,15 +744,17 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
-default_config() ->
-    Defaults =  envy:get(mini_s3, s3_defaults, list),
-    case proplists:is_defined(key_id, Defaults) andalso
-        proplists:is_defined(secret_access_key, Defaults) of
-        true ->
-            {key_id, Key} = proplists:lookup(key_id, Defaults),
-            {secret_access_key, AccessKey} =
-                proplists:lookup(secret_access_key, Defaults),
-            #aws_config{access_key_id=Key, secret_access_key=AccessKey};
-        false ->
-            throw({error, missing_s3_defaults})
-    end.
+% currently unused, but may be necessary for some functions which don't
+% pass in configs
+%default_config() ->
+%    Defaults =  envy:get(mini_s3, s3_defaults, list),
+%    case proplists:is_defined(key_id, Defaults) andalso
+%        proplists:is_defined(secret_access_key, Defaults) of
+%        true ->
+%            {key_id, Key} = proplists:lookup(key_id, Defaults),
+%            {secret_access_key, AccessKey} =
+%                proplists:lookup(secret_access_key, Defaults),
+%            #aws_config{access_key_id=Key, secret_access_key=AccessKey};
+%        false ->
+%            throw({error, missing_s3_defaults})
+%    end.
