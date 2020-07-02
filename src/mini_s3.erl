@@ -21,7 +21,7 @@
 
 -module(mini_s3).
 
--behavior(application).
+%-behavior(application).
 
 -export([
          new/3,
