@@ -254,13 +254,13 @@ create_bucket(BucketName, ACL, LocationConstraint) ->
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
-encode_acl(undefined)                 -> undefined;
-encode_acl(private)                   -> "private";
-encode_acl(public_read)               -> "public-read";
-encode_acl(public_read_write)         -> "public-read-write";
-encode_acl(authenticated_read)        -> "authenticated-read";
-encode_acl(bucket_owner_read)         -> "bucket-owner-read";
-encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
+%encode_acl(undefined)                 -> undefined;
+%encode_acl(private)                   -> "private";
+%encode_acl(public_read)               -> "public-read";
+%encode_acl(public_read_write)         -> "public-read-write";
+%encode_acl(authenticated_read)        -> "authenticated-read";
+%encode_acl(bucket_owner_read)         -> "bucket-owner-read";
+%encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
 
 % is this used?
 -spec delete_bucket(string()) -> ok.
@@ -302,19 +302,19 @@ list_objects(BucketName, Options, Config) ->
     [{name, Name} | Rest] = List,
     [{name, http_uri:decode(Name)} | Rest].
 
-extract_contents(Nodes) ->
-    Attributes = [{key, "Key", text},
-                  {last_modified, "LastModified", time},
-                  {etag, "ETag", text},
-                  {size, "Size", integer},
-                  {storage_class, "StorageClass", text},
-                  {owner, "Owner", fun extract_user/1}],
-    [ms3_xml:decode(Attributes, Node) || Node <- Nodes].
+%extract_contents(Nodes) ->
+%    Attributes = [{key, "Key", text},
+%                  {last_modified, "LastModified", time},
+%                  {etag, "ETag", text},
+%                  {size, "Size", integer},
+%                  {storage_class, "StorageClass", text},
+%                  {owner, "Owner", fun extract_user/1}],
+%    [ms3_xml:decode(Attributes, Node) || Node <- Nodes].
 
-extract_user([Node]) ->
-    Attributes = [{id, "ID", text},
-                  {display_name, "DisplayName", optional_text}],
-    ms3_xml:decode(Attributes, Node).
+%extract_user([Node]) ->
+%    Attributes = [{id, "ID", text},
+%                  {display_name, "DisplayName", optional_text}],
+%    ms3_xml:decode(Attributes, Node).
 
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name()) -> term().
 get_bucket_attribute(BucketName, AttributeName) ->
@@ -324,49 +324,49 @@ get_bucket_attribute(BucketName, AttributeName) ->
 get_bucket_attribute(BucketName, AttributeName, Config) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config).
 
-extract_acl(ACL) ->
-    [extract_grant(Item) || Item <- ACL].
+%extract_acl(ACL) ->
+%    [extract_grant(Item) || Item <- ACL].
 
-extract_grant(Node) ->
-    [{grantee, extract_user(xmerl_xpath:string("Grantee", Node))},
-     {permission, decode_permission(ms3_xml:get_text("Permission", Node))}].
+%extract_grant(Node) ->
+%    [{grantee, extract_user(xmerl_xpath:string("Grantee", Node))},
+%     {permission, decode_permission(ms3_xml:get_text("Permission", Node))}].
 
-encode_permission(full_control) -> "FULL_CONTROL";
-encode_permission(write)        -> "WRITE";
-encode_permission(write_acp)    -> "WRITE_ACP";
-encode_permission(read)         -> "READ";
-encode_permission(read_acp) -> "READ_ACP".
+%encode_permission(full_control) -> "FULL_CONTROL";
+%encode_permission(write)        -> "WRITE";
+%encode_permission(write_acp)    -> "WRITE_ACP";
+%encode_permission(read)         -> "READ";
+%encode_permission(read_acp) -> "READ_ACP".
 
-decode_permission("FULL_CONTROL") -> full_control;
-decode_permission("WRITE")        -> write;
-decode_permission("WRITE_ACP")    -> write_acp;
-decode_permission("READ")         -> read;
-decode_permission("READ_ACP")     -> read_acp.
+%decode_permission("FULL_CONTROL") -> full_control;
+%decode_permission("WRITE")        -> write;
+%decode_permission("WRITE_ACP")    -> write_acp;
+%decode_permission("READ")         -> read;
+%decode_permission("READ_ACP")     -> read_acp.
 
 
 %% @doc Canonicalizes a proplist of {"Header", "Value"} pairs by
 %% lower-casing all the Headers.
--spec canonicalize_headers([{string() | binary() | atom(), Value::string()}]) ->
-                                  [{LowerCaseHeader::string(), Value::string()}].
-canonicalize_headers(Headers) ->
-    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
+%-spec canonicalize_headers([{string() | binary() | atom(), Value::string()}]) ->
+%                                  [{LowerCaseHeader::string(), Value::string()}].
+%canonicalize_headers(Headers) ->
+%    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
 
--spec to_string(atom() | binary() | string()) -> string().
-to_string(A) when is_atom(A) ->
-    erlang:atom_to_list(A);
-to_string(B) when is_binary(B) ->
-    erlang:binary_to_list(B);
-to_string(S) when is_list(S) ->
-    S.
+%-spec to_string(atom() | binary() | string()) -> string().
+%to_string(A) when is_atom(A) ->
+%    erlang:atom_to_list(A);
+%to_string(B) when is_binary(B) ->
+%    erlang:binary_to_list(B);
+%to_string(S) when is_list(S) ->
+%    S.
 
 %% @doc Retrieves a value from a set of canonicalized headers.  The
 %% given header should already be canonicalized (i.e., lower-cased).
 %% Returns the value or the empty string if no such value was found.
--spec retrieve_header_value(Header::string(),
-                            AllHeaders::[{Header::string(), Value::string()}]) ->
-                                   string().
-retrieve_header_value(Header, AllHeaders) ->
-    proplists:get_value(Header, AllHeaders, "").
+%-spec retrieve_header_value(Header::string(),
+%                            AllHeaders::[{Header::string(), Value::string()}]) ->
+%                                   string().
+%retrieve_header_value(Header, AllHeaders) ->
+%    proplists:get_value(Header, AllHeaders, "").
 
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
@@ -379,28 +379,28 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
--spec format_s3_uri(aws_config(), string()) -> string().
-format_s3_uri(Config, Host) ->
-    S3Url = Config#aws_config.s3_host,
-    Scheme0 = Config#aws_config.s3_scheme,
-    % if scheme doesn't have ://, add it. if it does, leave it alone.
-    Scheme = case string:split(Scheme0, "://", leading) of [Scheme0] -> Scheme0++"://"; [_, []] -> Scheme0 end,
-    Port0 = integer_to_list(Config#aws_config.s3_port),
-    BAccessType = Config#aws_config.s3_bucket_access_method,
-    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
-    case BAccessType of
-        vhost ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
-                           if_not_empty(Host, [Host, $.]),
-                           if_not_empty(UserInfo, [UserInfo, "@"]),
-                           Domain, ":", erlang:integer_to_list(Port)]);
-        path ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
-                           if_not_empty(UserInfo, [UserInfo, "@"]),
-                           Domain, ":", erlang:integer_to_list(Port),
-                           if_not_empty(Host, [$/, Host])])
-    end.
+%-spec format_s3_uri(aws_config(), string()) -> string().
+%format_s3_uri(Config, Host) ->
+%    S3Url = Config#aws_config.s3_host,
+%    Scheme0 = Config#aws_config.s3_scheme,
+%    % if scheme doesn't have ://, add it. if it does, leave it alone.
+%    Scheme = case string:split(Scheme0, "://", leading) of [Scheme0] -> Scheme0++"://"; [_, []] -> Scheme0 end,
+%    Port0 = integer_to_list(Config#aws_config.s3_port),
+%    BAccessType = Config#aws_config.s3_bucket_access_method,
+%    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
+%        http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
+%    case BAccessType of
+%        vhost ->
+%            lists:flatten([erlang:atom_to_list(Protocol), "://",
+%                           if_not_empty(Host, [Host, $.]),
+%                           if_not_empty(UserInfo, [UserInfo, "@"]),
+%                           Domain, ":", erlang:integer_to_list(Port)]);
+%        path ->
+%            lists:flatten([erlang:atom_to_list(Protocol), "://",
+%                           if_not_empty(UserInfo, [UserInfo, "@"]),
+%                           Domain, ":", erlang:integer_to_list(Port),
+%                           if_not_empty(Host, [$/, Host])])
+%    end.
 
 %% @doc Generate an S3 URL using Query String Request Authentication
 %% (see
@@ -422,9 +422,7 @@ format_s3_uri(Config, Host) ->
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
     {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
     s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
-s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
-       Config = #aws_config{access_key_id=AccessKey,
-                        secret_access_key=SecretKey})
+s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
@@ -433,9 +431,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders,
 %-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
 -spec s3_url(atom(), string(), string(), integer(),
              proplists:proplist(), string(), aws_config()) -> binary().
-s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date,
-       Config = #aws_config{access_key_id=AccessKey,
-                        secret_access_key=SecretKey})
+s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
@@ -492,8 +488,8 @@ get_object_acl(BucketName, Key, Options, Config) ->
 get_object_metadata(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
 
-extract_metadata(Headers) ->
-    [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
+%extract_metadata(Headers) ->
+%    [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
 
 -spec get_object_torrent(string(), string()) -> proplists:proplist().
 get_object_torrent(BucketName, Key) ->
@@ -548,33 +544,33 @@ get_url_port(Config) ->
 list_object_versions(BucketName, Options, Config) ->
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
 
-extract_versions(Nodes) ->
-    [extract_version(Node) || Node <- Nodes].
+%extract_versions(Nodes) ->
+%    [extract_version(Node) || Node <- Nodes].
 
-extract_version(Node) ->
-    Attributes = [{key, "Key", text},
-                  {version_id, "VersionId", text},
-                  {is_latest, "IsLatest", boolean},
-                  {etag, "ETag", text},
-                  {size, "Size", integer},
-                  {owner, "Owner", fun extract_user/1},
-                  {storage_class, "StorageClass", text}],
-    ms3_xml:decode(Attributes, Node).
+%extract_version(Node) ->
+%    Attributes = [{key, "Key", text},
+%                  {version_id, "VersionId", text},
+%                  {is_latest, "IsLatest", boolean},
+%                  {etag, "ETag", text},
+%                  {size, "Size", integer},
+%                  {owner, "Owner", fun extract_user/1},
+%                  {storage_class, "StorageClass", text}],
+%    ms3_xml:decode(Attributes, Node).
 
-extract_delete_markers(Nodes) ->
-    [extract_delete_marker(Node) || Node <- Nodes].
+%extract_delete_markers(Nodes) ->
+%    [extract_delete_marker(Node) || Node <- Nodes].
+%
+%extract_delete_marker(Node) ->
+%    Attributes = [{key, "Key", text},
+%                  {version_id, "VersionId", text},
+%                  {is_latest, "IsLatest", boolean},
+%                  {owner, "Owner", fun extract_user/1}],
+%    ms3_xml:decode(Attributes, Node).
 
-extract_delete_marker(Node) ->
-    Attributes = [{key, "Key", text},
-                  {version_id, "VersionId", text},
-                  {is_latest, "IsLatest", boolean},
-                  {owner, "Owner", fun extract_user/1}],
-    ms3_xml:decode(Attributes, Node).
-
-extract_bucket(Node) ->
-    ms3_xml:decode([{name, "Name", text},
-                    {creation_date, "CreationDate", time}],
-                   Node).
+%extract_bucket(Node) ->
+%    ms3_xml:decode([{name, "Name", text},
+%                    {creation_date, "CreationDate", time}],
+%                   Node).
 
 %-spec put_object(string(),
 %                 string(),
@@ -617,115 +613,115 @@ set_bucket_attribute(BucketName, AttributeName, Value) ->
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
 
-encode_grants(Grants) ->
-    [encode_grant(Grant) || Grant <- Grants].
+%encode_grants(Grants) ->
+%    [encode_grant(Grant) || Grant <- Grants].
 
-encode_grant(Grant) ->
-    Grantee = proplists:get_value(grantee, Grant),
-    {'Grant',
-     [{'Grantee', [{xmlns, ?XMLNS_S3}],
-       [{'ID', [proplists:get_value(id, proplists:get_value(owner, Grantee))]},
-        {'DisplayName', [proplists:get_value(display_name, proplists:get_value(owner, Grantee))]}]},
-      {'Permission', [encode_permission(proplists:get_value(permission, Grant))]}]}.
+%encode_grant(Grant) ->
+%    Grantee = proplists:get_value(grantee, Grant),
+%    {'Grant',
+%     [{'Grantee', [{xmlns, ?XMLNS_S3}],
+%       [{'ID', [proplists:get_value(id, proplists:get_value(owner, Grantee))]},
+%        {'DisplayName', [proplists:get_value(display_name, proplists:get_value(owner, Grantee))]}]},
+%      {'Permission', [encode_permission(proplists:get_value(permission, Grant))]}]}.
 
-s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    case s3_request(Config, Method, Host, Path,
-                    Subresource, Params, POSTData, Headers) of
-        {_Headers, ""} -> ok;
-        {_Headers, Body} ->
-            XML = element(1,xmerl_scan:string(Body)),
-            case XML of
-                #xmlElement{name='Error'} ->
-                    ErrCode = ms3_xml:get_text("/Error/Code", XML),
-                    ErrMsg = ms3_xml:get_text("/Error/Message", XML),
-                    erlang:error({s3_error, ErrCode, ErrMsg});
-                _ ->
-                    ok
-            end
-    end.
+%s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+%    case s3_request(Config, Method, Host, Path,
+%                    Subresource, Params, POSTData, Headers) of
+%        {_Headers, ""} -> ok;
+%        {_Headers, Body} ->
+%            XML = element(1,xmerl_scan:string(Body)),
+%            case XML of
+%                #xmlElement{name='Error'} ->
+%                    ErrCode = ms3_xml:get_text("/Error/Code", XML),
+%                    ErrMsg = ms3_xml:get_text("/Error/Message", XML),
+%                    erlang:error({s3_error, ErrCode, ErrMsg});
+%                _ ->
+%                    ok
+%            end
+%    end.
 
-s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    {_Headers, Body} = s3_request(Config, Method, Host, Path,
-                                  Subresource, Params, POSTData, Headers),
-    XML = element(1,xmerl_scan:string(Body)),
-    case XML of
-        #xmlElement{name='Error'} ->
-            ErrCode = ms3_xml:get_text("/Error/Code", XML),
-            ErrMsg = ms3_xml:get_text("/Error/Message", XML),
-            erlang:error({s3_error, ErrCode, ErrMsg});
-        _ ->
-            XML
-    end.
+%s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+%    {_Headers, Body} = s3_request(Config, Method, Host, Path,
+%                                  Subresource, Params, POSTData, Headers),
+%    XML = element(1,xmerl_scan:string(Body)),
+%    case XML of
+%        #xmlElement{name='Error'} ->
+%            ErrCode = ms3_xml:get_text("/Error/Code", XML),
+%            ErrMsg = ms3_xml:get_text("/Error/Message", XML),
+%            erlang:error({s3_error, ErrCode, ErrMsg});
+%        _ ->
+%            XML
+%    end.
 
-s3_request(Config = #config{access_key_id=AccessKey,
-                            secret_access_key=SecretKey,
-                            ssl_options=SslOpts},
-           Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-    {ContentMD5, ContentType, Body} =
-        case POSTData of
-            {PD, CT} ->
-                {base64:encode(erlang:md5(PD)), CT, PD};
-            PD ->
-                %% On a put/post even with an empty body we need to
-                %% default to some content-type
-                case Method of
-                    _ when put == Method; post == Method ->
-                        {"", "text/xml", PD};
-                    _ ->
-                        {"", "", PD}
-                end
-        end,
-    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when
-                                        V =/= undefined -> true;
-                                  (_) -> false
-                              end, Headers),
-    Date = httpd_util:rfc1123_date(erlang:localtime()),
-    EscapedPath = ms3_http:url_encode_loose(Path),
-    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-    RequestHeaders0 = FHeaders ++
-        case ContentMD5 of
-            "" -> [];
-            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
-        end,
-    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
-                          true ->
-                              RequestHeaders0;
-                          false ->
-                              [{"Content-Type", ContentType} | RequestHeaders0]
-                      end,
-    IbrowseOpts = [ {ssl_options, SslOpts} ],
-    [$/ | Key] = Path,
-    Lifetime = 900,
-    RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
-    Response = case Method of
-                   get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-                   delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-                   head ->
-                       %% ibrowse is unable to handle HEAD request responses that are sent
-                       %% with chunked transfer-encoding (why servers do this is not
-                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
-                       %% to use HTTP 1.0 works around the problem.
-                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        IbrowseOpts1);
-                   _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
-               end,
-    case Response of
-        {ok, Status, ResponseHeaders0, ResponseBody} ->
-            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
-            case erlang:list_to_integer(Status) of
-                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
-                    {ResponseHeaders, ResponseBody};
-                BadStatus ->
-                    erlang:error({aws_error, {http_error, BadStatus,
-                                              {ResponseHeaders, ResponseBody}}})
-                end;
-        {error, Error} ->
-            erlang:error({aws_error, {socket_error, Error}})
-    end.
+%s3_request(Config = #config{access_key_id=AccessKey,
+%                            secret_access_key=SecretKey,
+%                            ssl_options=SslOpts},
+%           Method, Host, Path, Subresource, Params, POSTData, Headers) ->
+%    {ContentMD5, ContentType, Body} =
+%        case POSTData of
+%            {PD, CT} ->
+%                {base64:encode(erlang:md5(PD)), CT, PD};
+%            PD ->
+%                %% On a put/post even with an empty body we need to
+%                %% default to some content-type
+%                case Method of
+%                    _ when put == Method; post == Method ->
+%                        {"", "text/xml", PD};
+%                    _ ->
+%                        {"", "", PD}
+%                end
+%        end,
+%    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when
+%                                        V =/= undefined -> true;
+%                                  (_) -> false
+%                              end, Headers),
+%    Date = httpd_util:rfc1123_date(erlang:localtime()),
+%    EscapedPath = ms3_http:url_encode_loose(Path),
+%    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
+%    RequestHeaders0 = FHeaders ++
+%        case ContentMD5 of
+%            "" -> [];
+%            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
+%        end,
+%    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
+%                          true ->
+%                              RequestHeaders0;
+%                          false ->
+%                              [{"Content-Type", ContentType} | RequestHeaders0]
+%                      end,
+%    IbrowseOpts = [ {ssl_options, SslOpts} ],
+%    [$/ | Key] = Path,
+%    Lifetime = 900,
+%    RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
+%    Response = case Method of
+%                   get ->
+%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
+%                   delete ->
+%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
+%                   head ->
+%                       %% ibrowse is unable to handle HEAD request responses that are sent
+%                       %% with chunked transfer-encoding (why servers do this is not
+%                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
+%                       %% to use HTTP 1.0 works around the problem.
+%                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
+%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
+%                                        IbrowseOpts1);
+%                   _ ->
+%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
+%               end,
+%    case Response of
+%        {ok, Status, ResponseHeaders0, ResponseBody} ->
+%            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
+%            case erlang:list_to_integer(Status) of
+%                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
+%                    {ResponseHeaders, ResponseBody};
+%                BadStatus ->
+%                    erlang:error({aws_error, {http_error, BadStatus,
+%                                              {ResponseHeaders, ResponseBody}}})
+%                end;
+%        {error, Error} ->
+%            erlang:error({aws_error, {socket_error, Error}})
+%    end.
 
 make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
