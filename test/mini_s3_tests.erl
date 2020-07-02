@@ -19,7 +19,8 @@
 -module(mini_s3_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include("../src/erlcloud_aws.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
+%-include("../src/erlcloud_aws.hrl").
 -include("../src/internal.hrl").
 
 format_s3_uri_test_() ->
@@ -134,7 +135,7 @@ format_s3_uri_test_() ->
 %
 %    [ ?_assertEqual(Expect, TestFun(Args)) || {Args, Expect} <- Tests].
 
-% this should be make_expire_win_test(), but timeout doesn't seem to work unless main_test_()
+% this should be named make_expire_win_test(), but timeout doesn't work unless main_test_()
 main_test_() ->
     {timeout, 60,
         fun() ->

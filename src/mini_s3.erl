@@ -380,10 +380,7 @@ if_not_empty(_, Value) ->
     Value.
 
 -spec format_s3_uri(aws_config(), string()) -> string().
-%format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
 format_s3_uri(Config, Host) ->
-    % leaving off explicitly adding port for now, as this seems to be done automagically?
-    %S3Url = Config#aws_config.s3_scheme ++ Config#aws_config.s3_host, % ++ ":" ++ integer_to_list(Config#aws_config.s3_port),
     S3Url = Config#aws_config.s3_host,
     Scheme0 = Config#aws_config.s3_scheme,
     % if scheme doesn't have ://, add it. if it does, leave it alone.
@@ -584,7 +581,8 @@ extract_bucket(Node) ->
 %                 iolist(),
 %                 proplists:proplist(),
 %                 [{string(), string()}]) -> [{'version_id', _}, ...].
-% is this used? (no Config)
+% is this used?
+-spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}] | aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
@@ -744,8 +742,8 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
-% currently unused, but may be necessary for some functions which don't
-% pass in configs
+% currently unused, but may be necessary in the future
+% for some functions which don't pass in configs
 %default_config() ->
 %    Defaults =  envy:get(mini_s3, s3_defaults, list),
 %    case proplists:is_defined(key_id, Defaults) andalso
