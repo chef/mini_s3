@@ -68,6 +68,8 @@
          make_authorization/10,
          universaltime/0]).
 
+-export([make_expire_win/2]).
+-include_lib("eunit/include/eunit.hrl").
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
 -include_lib("eunit/include/eunit.hrl").
@@ -450,6 +452,8 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %                  |     |
 %   x-amz-date ----+     +---- x-amz-expires
 %
+%                  |-----| Lifetime
+%
 % 1) segment all of time into 'windows' of width expiry-window-size
 % 2) align x-amz-date to nearest expiry-window boundary less than present time
 % 3) align x-amz-expires to nearest expiry-window boundary greater than present time
@@ -457,11 +461,12 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %-----------------------------------------------------------------------------------
 -spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {non_neg_integer(), non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) ->
-    UniversalTime = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
-    XAmzDateSec = UniversalTime div ExpireWinSiz * ExpireWinSiz,
+    Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
+    XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
     ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
     XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
-    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), XAmzExpires}.
+    Lifetime = XAmzExpires - XAmzDateSec,
+    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
 
 % not sure if this is used? doesn't use config.
 -spec get_object(string(), string(), proplists:proplist()) -> proplists:proplist().
