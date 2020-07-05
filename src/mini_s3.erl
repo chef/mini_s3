@@ -125,28 +125,6 @@
 
 -type bucket_access_type() :: vhost | path.
 
-%-type bucket_attribute_name() :: acl
-%                               | location
-%                               | logging
-%                               | request_payment
-%                               | versioning.
-
-%-type settable_bucket_attribute_name() :: acl
-%                                        | logging
-%                                        | request_payment
-%                                        | versioning.
-
-%-type bucket_acl() :: private
-%                    | public_read
-%                    | public_read_write
-%                    | authenticated_read
-%                    | bucket_owner_read
-%                    | bucket_owner_full_control.
-
-%-type location_constraint() :: none
-%                             | us_west_1
-%                             | eu.
-
 %% This is a helper function that exists to make development just a
 %% wee bit easier
 -spec manual_start() -> ok.
@@ -256,14 +234,6 @@ create_bucket(BucketName, ACL, LocationConstraint) ->
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
-%encode_acl(undefined)                 -> undefined;
-%encode_acl(private)                   -> "private";
-%encode_acl(public_read)               -> "public-read";
-%encode_acl(public_read_write)         -> "public-read-write";
-%encode_acl(authenticated_read)        -> "authenticated-read";
-%encode_acl(bucket_owner_read)         -> "bucket-owner-read";
-%encode_acl(bucket_owner_full_control) -> "bucket-owner-full-control".
-
 % is this used?
 -spec delete_bucket(string()) -> ok.
 delete_bucket(BucketName) ->
@@ -304,20 +274,6 @@ list_objects(BucketName, Options, Config) ->
     [{name, Name} | Rest] = List,
     [{name, http_uri:decode(Name)} | Rest].
 
-%extract_contents(Nodes) ->
-%    Attributes = [{key, "Key", text},
-%                  {last_modified, "LastModified", time},
-%                  {etag, "ETag", text},
-%                  {size, "Size", integer},
-%                  {storage_class, "StorageClass", text},
-%                  {owner, "Owner", fun extract_user/1}],
-%    [ms3_xml:decode(Attributes, Node) || Node <- Nodes].
-
-%extract_user([Node]) ->
-%    Attributes = [{id, "ID", text},
-%                  {display_name, "DisplayName", optional_text}],
-%    ms3_xml:decode(Attributes, Node).
-
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name()) -> term().
 get_bucket_attribute(BucketName, AttributeName) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName).
@@ -325,50 +281,6 @@ get_bucket_attribute(BucketName, AttributeName) ->
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name(), aws_config()) -> term().
 get_bucket_attribute(BucketName, AttributeName, Config) ->
     erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config).
-
-%extract_acl(ACL) ->
-%    [extract_grant(Item) || Item <- ACL].
-
-%extract_grant(Node) ->
-%    [{grantee, extract_user(xmerl_xpath:string("Grantee", Node))},
-%     {permission, decode_permission(ms3_xml:get_text("Permission", Node))}].
-
-%encode_permission(full_control) -> "FULL_CONTROL";
-%encode_permission(write)        -> "WRITE";
-%encode_permission(write_acp)    -> "WRITE_ACP";
-%encode_permission(read)         -> "READ";
-%encode_permission(read_acp) -> "READ_ACP".
-
-%decode_permission("FULL_CONTROL") -> full_control;
-%decode_permission("WRITE")        -> write;
-%decode_permission("WRITE_ACP")    -> write_acp;
-%decode_permission("READ")         -> read;
-%decode_permission("READ_ACP")     -> read_acp.
-
-
-%% @doc Canonicalizes a proplist of {"Header", "Value"} pairs by
-%% lower-casing all the Headers.
-%-spec canonicalize_headers([{string() | binary() | atom(), Value::string()}]) ->
-%                                  [{LowerCaseHeader::string(), Value::string()}].
-%canonicalize_headers(Headers) ->
-%    [{string:to_lower(to_string(H)), V} || {H, V} <- Headers ].
-
-%-spec to_string(atom() | binary() | string()) -> string().
-%to_string(A) when is_atom(A) ->
-%    erlang:atom_to_list(A);
-%to_string(B) when is_binary(B) ->
-%    erlang:binary_to_list(B);
-%to_string(S) when is_list(S) ->
-%    S.
-
-%% @doc Retrieves a value from a set of canonicalized headers.  The
-%% given header should already be canonicalized (i.e., lower-cased).
-%% Returns the value or the empty string if no such value was found.
-%-spec retrieve_header_value(Header::string(),
-%                            AllHeaders::[{Header::string(), Value::string()}]) ->
-%                                   string().
-%retrieve_header_value(Header, AllHeaders) ->
-%    proplists:get_value(Header, AllHeaders, "").
 
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
@@ -381,30 +293,8 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
-%-spec format_s3_uri(aws_config(), string()) -> string().
-%format_s3_uri(Config, Host) ->
-%    S3Url = Config#aws_config.s3_host,
-%    Scheme0 = Config#aws_config.s3_scheme,
-%    % if scheme doesn't have ://, add it. if it does, leave it alone.
-%    Scheme = case string:split(Scheme0, "://", leading) of [Scheme0] -> Scheme0++"://"; [_, []] -> Scheme0 end,
-%    Port0 = integer_to_list(Config#aws_config.s3_port),
-%    BAccessType = Config#aws_config.s3_bucket_access_method,
-%    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-%        http_uri:parse(Scheme++S3Url++":"++Port0, [{ipv6_host_with_brackets, true}]),
-%    case BAccessType of
-%        vhost ->
-%            lists:flatten([erlang:atom_to_list(Protocol), "://",
-%                           if_not_empty(Host, [Host, $.]),
-%                           if_not_empty(UserInfo, [UserInfo, "@"]),
-%                           Domain, ":", erlang:integer_to_list(Port)]);
-%        path ->
-%            lists:flatten([erlang:atom_to_list(Protocol), "://",
-%                           if_not_empty(UserInfo, [UserInfo, "@"]),
-%                           Domain, ":", erlang:integer_to_list(Port),
-%                           if_not_empty(Host, [$/, Host])])
-%    end.
-
 %% @doc Generate an S3 URL using Query String Request Authentication
+%% [i think this link is for sigv2, not sigv4]
 %% (see
 %% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
 %% for details).
@@ -549,50 +439,11 @@ get_url_port(Config) ->
 list_object_versions(BucketName, Options, Config) ->
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
 
-%extract_versions(Nodes) ->
-%    [extract_version(Node) || Node <- Nodes].
-
-%extract_version(Node) ->
-%    Attributes = [{key, "Key", text},
-%                  {version_id, "VersionId", text},
-%                  {is_latest, "IsLatest", boolean},
-%                  {etag, "ETag", text},
-%                  {size, "Size", integer},
-%                  {owner, "Owner", fun extract_user/1},
-%                  {storage_class, "StorageClass", text}],
-%    ms3_xml:decode(Attributes, Node).
-
-%extract_delete_markers(Nodes) ->
-%    [extract_delete_marker(Node) || Node <- Nodes].
-%
-%extract_delete_marker(Node) ->
-%    Attributes = [{key, "Key", text},
-%                  {version_id, "VersionId", text},
-%                  {is_latest, "IsLatest", boolean},
-%                  {owner, "Owner", fun extract_user/1}],
-%    ms3_xml:decode(Attributes, Node).
-
-%extract_bucket(Node) ->
-%    ms3_xml:decode([{name, "Name", text},
-%                    {creation_date, "CreationDate", time}],
-%                   Node).
-
-%-spec put_object(string(),
-%                 string(),
-%                 iolist(),
-%                 proplists:proplist(),
-%                 [{string(), string()}]) -> [{'version_id', _}, ...].
 % is this used?
 -spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}] | aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
-%-spec put_object(string(),
-%                 string(),
-%                 iolist(),
-%                 proplists:proplist(),
-%                 [{string(), string()}],
-%                 aws_config()) -> [{'version_id', _}, ...].
 -spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}], aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
@@ -605,128 +456,13 @@ set_object_acl(BucketName, Key, ACL) ->
 set_object_acl(BucketName, Key, ACL, Config) ->
     erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config).
 
-%-spec set_bucket_attribute(string(),
-%                           settable_bucket_attribute_name(),
-%                           'bucket_owner' | 'requester' | [any()]) -> ok.
 -spec set_bucket_attribute(string(), atom(), term()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value).
 
-%-spec set_bucket_attribute(string(), settable_bucket_attribute_name(),
-%                           'bucket_owner' | 'requester' | [any()], aws_config()) -> ok.
 -spec set_bucket_attribute(string(), atom(), term(), aws_config()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
     erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
-
-%encode_grants(Grants) ->
-%    [encode_grant(Grant) || Grant <- Grants].
-
-%encode_grant(Grant) ->
-%    Grantee = proplists:get_value(grantee, Grant),
-%    {'Grant',
-%     [{'Grantee', [{xmlns, ?XMLNS_S3}],
-%       [{'ID', [proplists:get_value(id, proplists:get_value(owner, Grantee))]},
-%        {'DisplayName', [proplists:get_value(display_name, proplists:get_value(owner, Grantee))]}]},
-%      {'Permission', [encode_permission(proplists:get_value(permission, Grant))]}]}.
-
-%s3_simple_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-%    case s3_request(Config, Method, Host, Path,
-%                    Subresource, Params, POSTData, Headers) of
-%        {_Headers, ""} -> ok;
-%        {_Headers, Body} ->
-%            XML = element(1,xmerl_scan:string(Body)),
-%            case XML of
-%                #xmlElement{name='Error'} ->
-%                    ErrCode = ms3_xml:get_text("/Error/Code", XML),
-%                    ErrMsg = ms3_xml:get_text("/Error/Message", XML),
-%                    erlang:error({s3_error, ErrCode, ErrMsg});
-%                _ ->
-%                    ok
-%            end
-%    end.
-
-%s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-%    {_Headers, Body} = s3_request(Config, Method, Host, Path,
-%                                  Subresource, Params, POSTData, Headers),
-%    XML = element(1,xmerl_scan:string(Body)),
-%    case XML of
-%        #xmlElement{name='Error'} ->
-%            ErrCode = ms3_xml:get_text("/Error/Code", XML),
-%            ErrMsg = ms3_xml:get_text("/Error/Message", XML),
-%            erlang:error({s3_error, ErrCode, ErrMsg});
-%        _ ->
-%            XML
-%    end.
-
-%s3_request(Config = #config{access_key_id=AccessKey,
-%                            secret_access_key=SecretKey,
-%                            ssl_options=SslOpts},
-%           Method, Host, Path, Subresource, Params, POSTData, Headers) ->
-%    {ContentMD5, ContentType, Body} =
-%        case POSTData of
-%            {PD, CT} ->
-%                {base64:encode(erlang:md5(PD)), CT, PD};
-%            PD ->
-%                %% On a put/post even with an empty body we need to
-%                %% default to some content-type
-%                case Method of
-%                    _ when put == Method; post == Method ->
-%                        {"", "text/xml", PD};
-%                    _ ->
-%                        {"", "", PD}
-%                end
-%        end,
-%    AmzHeaders = lists:filter(fun ({"x-amz-" ++ _, V}) when
-%                                        V =/= undefined -> true;
-%                                  (_) -> false
-%                              end, Headers),
-%    Date = httpd_util:rfc1123_date(erlang:localtime()),
-%    EscapedPath = ms3_http:url_encode_loose(Path),
-%    FHeaders = [Header || {_, Value} = Header <- Headers, Value =/= undefined],
-%    RequestHeaders0 = FHeaders ++
-%        case ContentMD5 of
-%            "" -> [];
-%            _ -> [{"content-md5", binary_to_list(ContentMD5)}]
-%        end,
-%    RequestHeaders1 = case proplists:is_defined("Content-Type", RequestHeaders0) of
-%                          true ->
-%                              RequestHeaders0;
-%                          false ->
-%                              [{"Content-Type", ContentType} | RequestHeaders0]
-%                      end,
-%    IbrowseOpts = [ {ssl_options, SslOpts} ],
-%    [$/ | Key] = Path,
-%    Lifetime = 900,
-%    RequestURI = s3_url(Method, Host, Key, Lifetime, RequestHeaders1, Date, Config),
-%    Response = case Method of
-%                   get ->
-%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-%                   delete ->
-%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
-%                   head ->
-%                       %% ibrowse is unable to handle HEAD request responses that are sent
-%                       %% with chunked transfer-encoding (why servers do this is not
-%                       %% clear). While we await a fix in ibrowse, forcing the HEAD request
-%                       %% to use HTTP 1.0 works around the problem.
-%                       IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
-%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-%                                        IbrowseOpts1);
-%                   _ ->
-%                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
-%               end,
-%    case Response of
-%        {ok, Status, ResponseHeaders0, ResponseBody} ->
-%            ResponseHeaders = canonicalize_headers(ResponseHeaders0),
-%            case erlang:list_to_integer(Status) of
-%                OKStatus when OKStatus >= 200, OKStatus =< 299 ->
-%                    {ResponseHeaders, ResponseBody};
-%                BadStatus ->
-%                    erlang:error({aws_error, {http_error, BadStatus,
-%                                              {ResponseHeaders, ResponseBody}}})
-%                end;
-%        {error, Error} ->
-%            erlang:error({aws_error, {socket_error, Error}})
-%    end.
 
 make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
@@ -744,7 +480,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 % currently unused, but may be necessary in the future
-% for some functions which don't pass in configs
+% for some functions which don't pass in Configs
 %default_config() ->
 %    Defaults =  envy:get(mini_s3, s3_defaults, list),
 %    case proplists:is_defined(key_id, Defaults) andalso
