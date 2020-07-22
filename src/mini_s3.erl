@@ -69,10 +69,10 @@
          universaltime/0]).
 
 -export([make_expire_win/2]).
--include_lib("eunit/include/eunit.hrl").
+-include_lib("eunit/include/eunit.hrl").  % <----- need to delete this
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
--include_lib("eunit/include/eunit.hrl").
+%-include_lib("eunit/include/eunit.hrl"). % <----- and add this
 -endif.
 
 % is this used?  TODO: try removing
