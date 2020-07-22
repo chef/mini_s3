@@ -429,7 +429,7 @@ get_url_port(Config) ->
     Url1 = string:trim(Url0, trailing, "/"),
     case Config#aws_config.s3_port of
         80 ->
-            % won't contain port if port == 80
+            % won't contain port if port == 80, so add it
             Url1 ++ ":80";
         _ ->
             Url1
