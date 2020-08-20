@@ -21,31 +21,19 @@
 
 -module(mini_s3).
 
-%-behavior(application).
-
 -export([
-         new/3,
-         new/4,
-         new/5,
+         copy_object/5,
+         copy_object/6,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
          delete_bucket/2,
-         get_bucket_attribute/2,
-         get_bucket_attribute/3,
-         list_buckets/1,
-         set_bucket_attribute/3,
-         set_bucket_attribute/4,
-         list_objects/2,
-         list_objects/3,
-         list_object_versions/2,
-         list_object_versions/3,
-         copy_object/5,
-         copy_object/6,
          delete_object/2,
          delete_object/3,
          delete_object_version/3,
          delete_object_version/4,
+         get_bucket_attribute/2,
+         get_bucket_attribute/3,
          get_object/3,
          get_object/4,
          get_object_acl/2,
@@ -57,29 +45,40 @@
          get_host_toggleport/2,
          get_url_noport/1,
          get_url_port/1,
-         s3_url/6,
-         s3_url/7,
+         list_buckets/1,
+         list_objects/2,
+         list_objects/3,
+         list_object_versions/2,
+         list_object_versions/3,
+         new/3,
+         new/4,
+         new/5,
          put_object/5,
          put_object/6,
+         s3_url/6,
+         s3_url/7,
+         set_bucket_attribute/3,
+         set_bucket_attribute/4,
          set_object_acl/3,
-         set_object_acl/4]).
+         set_object_acl/4
+]).
 
--export([manual_start/0,
-         make_authorization/10,
-         universaltime/0]).
+-export([make_authorization/10,
+         manual_start/0,
+         make_expire_win/2,
+         universaltime/0
+]).
 
--export([make_expire_win/2]).
--include_lib("eunit/include/eunit.hrl").  % <----- need to delete this
+% is this used?  TODO: try removing
+-include("internal.hrl").
+%-include_lib("eunit/include/eunit.hrl").  % <----- need to delete this
+-include_lib("xmerl/include/xmerl.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
+
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
 %-include_lib("eunit/include/eunit.hrl"). % <----- and add this
 -endif.
-
-% is this used?  TODO: try removing
--include("internal.hrl").
--include_lib("xmerl/include/xmerl.hrl").
--include_lib("erlcloud/include/erlcloud_aws.hrl").
-
 
 -type s3_bucket_attribute_name() :: acl
                                   | location
@@ -185,17 +184,20 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
     Domain = case Ipv of 4 -> Domain1; _ -> "[" ++ Domain0 ++ "]" end,
     %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf...
     %% s3 wants bucketname before host (or it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443...
-    %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests. Path-style
-    %% requests will continue to be supported for buckets created on or before this date."
-    %% for further discussion, see: https://github.com/chef/chef-server/issues/1911
+    %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests.
+    %% Path-style requests will continue to be supported for buckets created on or before this date."
+    %% for further discussion, see:
+    %%  https://github.com/chef/chef-server/issues/2088
+    %%  https://github.com/chef/chef-server/issues/1911
+
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
+% mini_s3 wanted accesskey, secretaccesskey, host, bucketaccesstype:
+%   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
 % erlcloud wants accesskey, secretaccesskey, host, port.
-% mini_s3  wants accesskey, secretaccesskey, host, bucketaccesstype
-%-spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
+% convert old mini_s3 new/4 to erlcloud/3.
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
-    % convert mini_s3 new/4 to erlcloud
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
     Config = new(AccessKeyID, SecretAccessKey, Host),
     Config#aws_config{
@@ -203,15 +205,12 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
         s3_bucket_after_host=BucketAfterHost
     }.
 
-% erlcloud has no new/5. 
-% also, arguments differ.
-% erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port
-% erlcloud's signature is:
+% erlcloud has no new/5, and arguments differ.
+% erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port:
 %   new(AccessKeyID::string(), SecretAccessKey::string(), Host::string(), Port::non_neg_integer()) -> aws_config()
-% for now, attempting conversion to new/4
+% for now, attempting conversion to new/4 (dropping SslOpts).
 %
-% this is called in oc_erchef in:
-% src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
+% NOTE: this is called in oc_erchef in: src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
@@ -293,23 +292,7 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
-%% @doc Generate an S3 URL using Query String Request Authentication
-%% [i think this link is for sigv2, not sigv4]
-%% (see
-%% http://docs.amazonwebservices.com/AmazonS3/latest/dev/RESTAuthentication.html#RESTAuthenticationQueryStringAuth
-%% for details).
-%%
-%% Note that this is **NOT** a complete implementation of the S3 Query
-%% String Request Authentication signing protocol.  In particular, it
-%% does nothing with "x-amz-*" headers, nothing for virtual hosted
-%% buckets, and nothing for sub-resources.  It currently works for
-%% relatively simple use cases (e.g., providing URLs to which
-%% third-parties can upload specific files).
-%%
-%% Consult the official documentation (linked above) if you wish to
-%% augment this function's capabilities.
-
--spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
+-spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()},
              proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
     {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
@@ -320,14 +303,12 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
     iolist_to_binary(RequestURI).
 
-%-spec s3_url(atom(), string(), string(), integer() | {integer(), integer()},
--spec s3_url(atom(), string(), string(), integer(),
+-spec s3_url(atom(), string(), string(), non_neg_integer(),
              proplists:proplist(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
-
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
@@ -347,9 +328,9 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 % 1) segment all of time into 'windows' of width expiry-window-size
 % 2) align x-amz-date to nearest expiry-window boundary less than present time
 % 3) align x-amz-expires to nearest expiry-window boundary greater than present time
-%    while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
+% 4) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
 %-----------------------------------------------------------------------------------
--spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {non_neg_integer(), non_neg_integer()}.
+-spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {string(), non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) ->
     Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
     XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
@@ -382,9 +363,6 @@ get_object_acl(BucketName, Key, Options, Config) ->
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object_metadata(BucketName, Key, Options, Config) ->
     erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
-
-%extract_metadata(Headers) ->
-%    [{Key, Value} || {["x-amz-meta-"|Key], Value} <- Headers].
 
 -spec get_object_torrent(string(), string()) -> proplists:proplist().
 get_object_torrent(BucketName, Key) ->
@@ -479,7 +457,11 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
     Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
+
+% ----------------------------------------------------
 % currently unused, but may be necessary in the future
+% ----------------------------------------------------
+
 % for some functions which don't pass in Configs
 %default_config() ->
 %    Defaults =  envy:get(mini_s3, s3_defaults, list),
