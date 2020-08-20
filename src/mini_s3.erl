@@ -43,8 +43,6 @@
          get_object_torrent/3,
          get_object_metadata/4,
          get_host_toggleport/2,
-         get_url_noport/1,
-         get_url_port/1,
          list_buckets/1,
          list_objects/2,
          list_objects/3,
@@ -391,26 +389,6 @@ get_host_toggleport(Host, Config) ->
             string:join([Host, Port], ":");
         [H, _] ->
             H
-    end.
-
-% construct url (scheme://host) from config
--spec get_url_noport(aws_config()) -> string().
-get_url_noport(Config) ->
-    UrlRaw  = get_url_port(Config),
-    UrlTemp = string:trim(UrlRaw, trailing, "1234568790"),
-    string:trim(UrlTemp, trailing, ":").
-
-% construct url (scheme://host:port) from config
--spec get_url_port(aws_config()) -> string().
-get_url_port(Config) ->
-    Url0 = erlcloud_s3:get_object_url("", "", Config),
-    Url1 = string:trim(Url0, trailing, "/"),
-    case Config#aws_config.s3_port of
-        80 ->
-            % won't contain port if port == 80, so add it
-            Url1 ++ ":80";
-        _ ->
-            Url1
     end.
 
 -spec list_object_versions(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
