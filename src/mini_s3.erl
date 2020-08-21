@@ -326,7 +326,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %                     Lifetime
 %
 % given a TTL, x-amz-expires should be set to be the closest expiry-window
-% boundary >= present + TTL.
+% boundary >= present + TTL, ie present+TTL selects the expiry-window.
 %
 % 1) segment all of time into 'windows' of width expiry-window-size.
 % 2) align x-amz-date to nearest expiry-window boundary less than present time.
