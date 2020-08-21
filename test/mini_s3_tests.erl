@@ -28,8 +28,6 @@ format_s3_uri(Config, Bucket) ->
 
 format_s3_uri_test_() ->
     Config = fun(Url, Type) ->
-                     %#config{s3_url = Url, s3_bucket_access_method = Type}
-                     %#aws_config{s3_url = Url, s3_ = Type}
                      mini_s3:new("", "", Url, Type)
              end,
     Tests = [
@@ -79,28 +77,28 @@ new_test() ->
 
     Config1 = mini_s3:new("key", "secret", "https://host:80"),
     "https://" = Config1#aws_config.s3_scheme,
-    "host"    = Config1#aws_config.s3_host,
-    80 =  Config1#aws_config.s3_port,
+    "host"     = Config1#aws_config.s3_host,
+    80         = Config1#aws_config.s3_port,
 
     Config2 = mini_s3:new("key", "secret", "http://host:443"),
     "http://" = Config2#aws_config.s3_scheme,
     "host"    = Config2#aws_config.s3_host,
-    443 = Config2#aws_config.s3_port,
+    443       = Config2#aws_config.s3_port,
 
     Config3 = mini_s3:new("key", "secret", "https://host:443"),
     "https://" = Config3#aws_config.s3_scheme,
-    "host"    = Config3#aws_config.s3_host,
-    443 = Config3#aws_config.s3_port, 
+    "host"     = Config3#aws_config.s3_host,
+    443        = Config3#aws_config.s3_port, 
 
     Config4 = mini_s3:new("key", "secret", "https://host:23"),
     "https://" = Config4#aws_config.s3_scheme,
-    "host"    = Config4#aws_config.s3_host,
-    23 =  Config4#aws_config.s3_port,
+    "host"     = Config4#aws_config.s3_host,
+    23         = Config4#aws_config.s3_port,
 
     Config5 = mini_s3:new("key", "secret", "http://host:23"),
     "http://" = Config5#aws_config.s3_scheme,
     "host"    = Config5#aws_config.s3_host,
-    23 = Config5#aws_config.s3_port,
+    23        = Config5#aws_config.s3_port,
 
     Config00 = mini_s3:new("key", "secret", "http://[1234:1234:1234:1234:1234:1234:1234:1234]:80"),
     "http://" = Config00#aws_config.s3_scheme,
@@ -111,13 +109,13 @@ new_test() ->
     % scheme://host
     Config6 = mini_s3:new("key", "secret", "https://host"),
     "https://" = Config6#aws_config.s3_scheme,
-    "host"    = Config6#aws_config.s3_host,
-    443 = Config6#aws_config.s3_port,
+    "host"     = Config6#aws_config.s3_host,
+    443        = Config6#aws_config.s3_port,
 
     Config7 = mini_s3:new("key", "secret", "http://host"),
     "http://" = Config7#aws_config.s3_scheme,
     "host"    = Config7#aws_config.s3_host,
-    80 = Config7#aws_config.s3_port,
+    80        = Config7#aws_config.s3_port,
 
     Config11 = mini_s3:new("key", "secret", "http://[1234:1234:1234:1234:1234:1234:1234:1234]"),
     "http://" = Config11#aws_config.s3_scheme,
@@ -129,17 +127,17 @@ new_test() ->
     Config8 = mini_s3:new("key", "secret", "host:80"),
     "http://" = Config8#aws_config.s3_scheme,
     "host"    = Config8#aws_config.s3_host,
-    80 = Config8#aws_config.s3_port,
+    80        = Config8#aws_config.s3_port,
 
     Config9 = mini_s3:new("key", "secret", "host:443"),
     "https://" = Config9#aws_config.s3_scheme,
-    "host"    = Config9#aws_config.s3_host,
-    443 = Config9#aws_config.s3_port,
+    "host"     = Config9#aws_config.s3_host,
+    443        = Config9#aws_config.s3_port,
 
     ConfigA = mini_s3:new("key", "secret", "host:23"),
     "https://" = ConfigA#aws_config.s3_scheme,
-    "host"    = ConfigA#aws_config.s3_host,
-    23 = ConfigA#aws_config.s3_port,
+    "host"     = ConfigA#aws_config.s3_host,
+    23         = ConfigA#aws_config.s3_port,
 
     Config88 = mini_s3:new("key", "secret", "[1234:1234:1234:1234:1234:1234:1234:1234]:80"),
     "http://" = Config88#aws_config.s3_scheme,
@@ -150,8 +148,8 @@ new_test() ->
     % host
     ConfigB = mini_s3:new("key", "secret", "host"),
     "https://" = ConfigB#aws_config.s3_scheme,
-    "host"    = ConfigB#aws_config.s3_host,
-    443 = ConfigB#aws_config.s3_port,
+    "host"     = ConfigB#aws_config.s3_host,
+    443        = ConfigB#aws_config.s3_port,
 
     ConfigBB = mini_s3:new("key", "secret", "[1234:1234:1234:1234:1234:1234:1234:1234]"),
     "https://" = ConfigBB#aws_config.s3_scheme,
