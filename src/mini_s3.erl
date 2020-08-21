@@ -193,7 +193,7 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
 % mini_s3 wanted accesskey, secretaccesskey, host, bucketaccesstype:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
 % erlcloud wants accesskey, secretaccesskey, host, port.
-% convert old mini_s3 new/4 to erlcloud/3.
+% convert old mini_s3 new/4 to new/3.
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
@@ -310,23 +310,31 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
-% implementation of expiration windows for sigv4
-% for making batches of cacheable presigned URLs
+% implementation of expiration windows for sigv4 for making batches
+% of cacheable presigned URLs
 %
-%       PAST       PRESENT      FUTURE
-%                     |
-% -----+-----+-----+--+--+-----+-----+-----+--
-%      |     |     |  |  |     |     |     |   TIME
-% -----+-----+-----+--+--+-----+-----+-----+--
-%                  |     |
-%   x-amz-date ----+     +---- x-amz-expires
+%          past       present      future
+%                        |
+% ------+------+------+--+---+------+------+------+------
+%       |      |      |  |   |      |      |      |   time (exp-wins)
+% ------+------+------+--+---+------+------+------+------
+%                     |    ^ |
+%      x-amz-date ----+    | +---- x-amz-expires
+%                        |-|
+%                        TTL
+%                     |------|
+%                     Lifetime
 %
-%                  |-----| Lifetime
+% given a TTL, x-amz-expires should be set to be the closest expiry-window
+% boundary >= present + TTL.
 %
-% 1) segment all of time into 'windows' of width expiry-window-size
-% 2) align x-amz-date to nearest expiry-window boundary less than present time
-% 3) align x-amz-expires to nearest expiry-window boundary greater than present time
-% 4) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size
+% 1) segment all of time into 'windows' of width expiry-window-size.
+% 2) align x-amz-date to nearest expiry-window boundary less than present time.
+% 3) align x-amz-expires to nearest expiry-window boundary greater than present time.
+% 4) the right edge of present + TTL is a 'selector' to determine which expiration
+%    window we are in, thus determining fincal value of x-amz-expires.
+% 5) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
+% 6) Lifetime = x-amz-expires - x-amz-date.
 %-----------------------------------------------------------------------------------
 -spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {string(), non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) ->
