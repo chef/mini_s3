@@ -68,6 +68,23 @@ main_test_() ->
         end
     }.
     
+make_expire_win_test() ->
+    % lifetime >= ttl
+    % lifetime >= expire_win_size
+    {_,    1} = mini_s3:make_expire_win(0,       1),
+    {_,    1} = mini_s3:make_expire_win(1,       1),
+    {_,    2} = mini_s3:make_expire_win(2,       1),
+    {_,  100} = mini_s3:make_expire_win(0,     100),
+    {_,  100} = mini_s3:make_expire_win(99,    100),
+    {_,  100} = mini_s3:make_expire_win(100,   100),
+    {_,   L0} = mini_s3:make_expire_win(101,   100),
+    true = L0 >= 101,
+    {_, 1000} = mini_s3:make_expire_win(0,    1000),
+    {_, 1000} = mini_s3:make_expire_win(999,  1000),
+    {_, 1000} = mini_s3:make_expire_win(1000, 1000),
+    {_,   L1} = mini_s3:make_expire_win(1001, 1000),
+    true = L1 >= 1001.
+
 new_test() ->
     % scheme://host:port
     Config0 = mini_s3:new("key", "secret", "http://host:80"),
