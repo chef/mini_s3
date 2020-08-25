@@ -54,7 +54,7 @@ format_s3_uri_test_() ->
     [ ?_assertEqual(Expect, format_s3_uri(Config(Url, Type), "bucket"))
       || {Url, Type, Expect} <- Tests ].
 
-% this should be named make_expire_win_test(), but timeout doesn't work unless it's named main_test_()
+% this should be included in make_expire_win_test(), but timeout doesn't work unless it's named main_test_()
 main_test_() ->
     {timeout, 60,
         fun() ->
@@ -69,8 +69,7 @@ main_test_() ->
     }.
     
 make_expire_win_test() ->
-    % lifetime >= ttl
-    % lifetime >= expire_win_size
+    % lifetime >= ttl; lifetime >= expire_win_size
     {_,    1} = mini_s3:make_expire_win(0,       1),
     {_,    1} = mini_s3:make_expire_win(1,       1),
     {_,    2} = mini_s3:make_expire_win(2,       1),
