@@ -140,9 +140,10 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
 
     % ipv4/6 detection
     {Ipv, Host} =
-        case string:tokens(Host0, "[]") of
+        %case string:tokens(Host0, "[]") of
+        case string:lexemes(Host0, "[]") of
+            % ipv4
             [Host0] ->
-                % ipv4
                 Domain0 = "",
                 {4, Host0};
             % ipv6
@@ -190,10 +191,9 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
 
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
-% mini_s3 wanted accesskey, secretaccesskey, host, bucketaccesstype:
+% old mini_s3 wanted accesskey, secretaccesskey, host, bucketaccesstype, e.g.:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
 % erlcloud wants accesskey, secretaccesskey, host, port.
-% convert old mini_s3 new/4 to new/3.
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
@@ -290,8 +290,7 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
--spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()},
-             proplists:proplist(), aws_config()) -> binary().
+-spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()}, proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
     {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
     s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
@@ -301,8 +300,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
     RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
     iolist_to_binary(RequestURI).
 
--spec s3_url(atom(), string(), string(), non_neg_integer(),
-             proplists:proplist(), string(), aws_config()) -> binary().
+-spec s3_url(atom(), string(), string(), non_neg_integer(), proplists:proplist(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
@@ -310,7 +308,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
-% implementation of expiration windows for sigv4 for making batches
+% implementation of expiration windows for sigv4, for making batches
 % of cacheable presigned URLs
 %
 %          past       present      future
@@ -326,13 +324,13 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %                     Lifetime
 %
 % given a TTL, x-amz-expires should be set to be the closest expiry-window
-% boundary >= present + TTL, ie present+TTL selects the expiry-window.
+% boundary >= present+TTL, ie present+TTL selects the expiry-window.
 %
 % 1) segment all of time into 'windows' of width expiry-window-size.
 % 2) align x-amz-date to nearest expiry-window boundary less than present time.
 % 3) align x-amz-expires to nearest expiry-window boundary greater than present time.
-% 4) the right edge of present + TTL is a 'selector' to determine which expiration
-%    window we are in, thus determining final value of x-amz-expires.
+% 4) the right edge of present+TTL is a 'selector' to determine which expiration
+%    window we are in, thus determining final value of x-amz-expires and Lifetime.
 % 5) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
 % 6) Lifetime = x-amz-expires - x-amz-date.
 %-----------------------------------------------------------------------------------
@@ -408,7 +406,7 @@ list_object_versions(BucketName, Options, Config) ->
 put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
--spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}], aws_config()) -> proplists:proplist().
+-spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}],  aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
     erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
 
