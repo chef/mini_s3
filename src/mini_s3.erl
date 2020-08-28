@@ -194,7 +194,7 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     %%  https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=false, s3_bucket_access_method=vhost}.
 
 % old mini_s3:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
