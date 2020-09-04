@@ -1,0 +1,12 @@
+# Documentation available at https://expeditor.chef.io/docs/getting-started/
+slack:
+  notify_channel:
+    - chef-server-notify
+
+github:
+  delete_branch_on_merge: true
+
+pipelines:
+  - verify:
+      description: Pull Request validation tests
+      public: true

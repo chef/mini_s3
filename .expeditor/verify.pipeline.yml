@@ -1,0 +1,19 @@
+---
+steps:
+- label: ":erlang: 22.3"
+  command:
+    - asdf install erlang 22.3
+    - asdf local erlang 22.3
+    - make all
+  expeditor:
+    executor:
+      docker:
+
+- label: ":erlang: 23.0"
+  command:
+    - asdf install erlang 23.0
+    - asdf local erlang 23.0
+    - make all
+  expeditor:
+    executor:
+      docker:
