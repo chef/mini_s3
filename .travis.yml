@@ -1,6 +1,7 @@
 language: erlang
 otp_release:
-  - 22.2
+  - 22.3
+  - 23.0
 
 install: true
 script: rebar3 eunit
@@ -8,4 +9,3 @@ script: rebar3 eunit
 branches:
   only:
     - master
-    - lbaker/erlang22
