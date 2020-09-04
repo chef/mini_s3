@@ -50,3 +50,5 @@ $(REBAR3):
 
 travis: all
 	@echo "Travis'd!"
+
+.PHONY: test
