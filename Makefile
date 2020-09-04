@@ -1,7 +1,6 @@
 #
 # Simple Makefile for rebar3 based erlang project
 #
-
 #
 # Use rebar3 from either:
 # - ./rebar3
@@ -18,7 +17,7 @@ REBAR3 ?= $(shell which rebar3)
 
 # And finally, prep to download rebar if all else fails
 ifeq ($(REBAR3),)
-REBAR3 = rebar3
+REBAR3 = ./rebar3
 endif
 
 all: $(REBAR3)
