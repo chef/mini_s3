@@ -129,6 +129,21 @@ manual_start() ->
     application:start(ssl),
     application:start(inets).
 
+-spec parse_ipv_host_domain(string()) -> {pos_integer(), list(), string()}.
+parse_ipv_host_domain(Host0) ->
+    case string:lexemes(Host0, "[]") of
+        % ipv4
+        [Host0] ->
+            Domain0 = "",
+            {4, Host0, Domain0};
+        % ipv6
+        [Scheme0,    Domain0, Port0] -> {6, lists:flatten([Scheme0,    $\r, Port0]), Domain0};
+        ["http://",  Domain0       ] -> {6, lists:flatten(["http://",  $\r       ]), Domain0};
+        ["https://", Domain0       ] -> {6, lists:flatten(["https://", $\r       ]), Domain0};
+        [            Domain0, Port0] -> {6, lists:flatten([            $\r, Port0]), Domain0};
+        [            Domain0       ] -> {6,               [            $\r       ] , Domain0}
+    end.
+
 -spec new(string() | binary(), string() | binary(), string()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host0) ->
     % chef-server crams scheme://host:port all into into Host; erlcloud wants them separate.
@@ -137,19 +152,7 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
     %   scheme == http | https
 
     % ipv4/6 detection
-    {Ipv, Host} =
-        case string:lexemes(Host0, "[]") of
-            % ipv4
-            [Host0] ->
-                Domain0 = "",
-                {4, Host0};
-            % ipv6
-            [Scheme0,    Domain0, Port0] -> {6, lists:flatten([Scheme0,    $x, Port0])};
-            ["http://",  Domain0       ] -> {6, lists:flatten(["http://",  $x       ])};
-            ["https://", Domain0       ] -> {6, lists:flatten(["https://", $x       ])};
-            [            Domain0, Port0] -> {6, lists:flatten([            $x, Port0])};
-            [            Domain0       ] -> {6, "x"}
-        end,
+    {Ipv, Host, Domain0} = parse_ipv_host_domain(Host0),
 
     case string:split(Host, ":", all) of
         % Host == scheme://domain:port
