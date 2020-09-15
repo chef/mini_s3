@@ -69,13 +69,11 @@
 
 % is this used?  TODO: try removing
 -include("internal.hrl").
-%-include_lib("eunit/include/eunit.hrl").  % <----- need to delete this
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
-%-include_lib("eunit/include/eunit.hrl"). % <----- and add this
 -endif.
 
 -type s3_bucket_attribute_name() :: acl
@@ -140,7 +138,6 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
 
     % ipv4/6 detection
     {Ipv, Host} =
-        %case string:tokens(Host0, "[]") of
         case string:lexemes(Host0, "[]") of
             % ipv4
             [Host0] ->
