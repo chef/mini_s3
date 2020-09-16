@@ -324,7 +324,8 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %                     Lifetime
 %
 % given a TTL, x-amz-expires should be set to be the closest expiry-window
-% boundary >= present+TTL, ie present+TTL selects the expiry-window.
+% boundary >= present+TTL, ie present+TTL selects the expiry-window. squelch
+% any resulting Lifetime of greater than one week to one week.
 %
 % 1) segment all of time into 'windows' of width expiry-window-size.
 % 2) align x-amz-date to nearest expiry-window boundary less than present time.
@@ -332,15 +333,20 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 % 4) the right edge of present+TTL is a 'selector' to determine which expiration
 %    window we are in, thus determining final value of x-amz-expires and Lifetime.
 % 5) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
-% 6) Lifetime = x-amz-expires - x-amz-date.
+% 6) Lifetime = x-amz-expires - x-amz-date, or WEEKSEC, whichever is less.
 %-----------------------------------------------------------------------------------
+-define(WEEKSEC, 604800).
 -spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {string(), non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
     Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
     XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
     ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
     XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
-    Lifetime = XAmzExpires - XAmzDateSec,
+    Lifetime =
+        case (L = XAmzExpires - XAmzDateSec) > ?WEEKSEC of
+            true -> ?WEEKSEC;
+            _    -> L
+        end,
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
 
 % not sure if this is used? doesn't use config.
