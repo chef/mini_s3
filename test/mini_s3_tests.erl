@@ -172,17 +172,3 @@ new_test() ->
     "https://" = ConfigBB#aws_config.s3_scheme,
     "[1234:1234:1234:1234:1234:1234:1234:1234]" = ConfigBB#aws_config.s3_host,
     443        = ConfigBB#aws_config.s3_port.
-
-
-% toggle port on host header (add port or remove it)
-get_host_toggleport_test() ->
-    Config0 = mini_s3:new("", "", "host"),
-    "host:443" = mini_s3:get_host_toggleport("host", Config0),
-    Config1 = mini_s3:new("", "", "host:123"),
-    "host" = mini_s3:get_host_toggleport("host:123", Config1),
-    Config2 = mini_s3:new("", "", "http://host"),
-    "http://host:80" = mini_s3:get_host_toggleport("http://host", Config2),
-    Config3 = mini_s3:new("", "", "http://host:123"),
-    "http://host" = mini_s3:get_host_toggleport("http://host:123", Config3),
-    Config4 = mini_s3:new("", "", "https://host:123"),
-    "https://host" = mini_s3:get_host_toggleport("https://host:123", Config4).

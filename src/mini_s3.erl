@@ -42,7 +42,6 @@
          get_object_torrent/2,
          get_object_torrent/3,
          get_object_metadata/4,
-         get_host_toggleport/2,
          list_buckets/1,
          list_objects/2,
          list_objects/3,
@@ -385,23 +384,6 @@ get_object_torrent(BucketName, Key, Config) ->
 -spec list_object_versions(string(), proplists:proplist() | aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options) ->
     erlcloud_s3:list_object_versions(BucketName, Options).
-
-% toggle port on host header (add port or remove it)
--spec get_host_toggleport(string(), aws_config()) -> string().
-get_host_toggleport(Host, Config) ->
-    case string:split(Host, ":", trailing) of
-        [Host] ->
-            Port = integer_to_list(Config#aws_config.s3_port),
-            string:join([Host, Port], ":");
-        ["http", _] ->
-            Port = integer_to_list(Config#aws_config.s3_port),
-            string:join([Host, Port], ":");
-        ["https", _] ->
-            Port = integer_to_list(Config#aws_config.s3_port),
-            string:join([Host, Port], ":");
-        [H, _] ->
-            H
-    end.
 
 -spec list_object_versions(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options, Config) ->
