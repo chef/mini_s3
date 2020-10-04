@@ -313,7 +313,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %          past       present      future
 %                        |
 % ------+------+------+--+---+------+------+------+------
-%       |      |      |  |   |      |      |      |   time (exp-wins)
+%       |      |      |  |   |      |      |      |  time
 % ------+------+------+--+---+------+------+------+------
 %                     |    ^ |
 %      x-amz-date ----+    | +---- x-amz-expires
