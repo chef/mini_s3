@@ -26,7 +26,7 @@
          copy_object/6,
          create_bucket/3,
          create_bucket/4,
-         delete_bucket/1,
+%        delete_bucket/1,
          delete_bucket/2,
          delete_object/2,
          delete_object/3,
@@ -34,7 +34,7 @@
          delete_object_version/4,
          get_bucket_attribute/2,
          get_bucket_attribute/3,
-         get_object/3,
+%        get_object/3,
          get_object/4,
          get_object_acl/2,
          get_object_acl/3,
@@ -50,7 +50,7 @@
          new/3,
          new/4,
          new/5,
-         put_object/5,
+%        put_object/5,
          put_object/6,
          s3_url/6,
          s3_url/7,
@@ -67,7 +67,7 @@
 ]).
 
 % is this used?  TODO: try removing
--include("internal.hrl").
+%-include("internal.hrl").
 -include_lib("xmerl/include/xmerl.hrl").
 -include_lib("erlcloud/include/erlcloud_aws.hrl").
 
@@ -231,9 +231,9 @@ create_bucket(BucketName, ACL, LocationConstraint, Config) ->
     erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
 
 % is this used?
--spec delete_bucket(string()) -> ok.
-delete_bucket(BucketName) ->
-    erlcloud_s3:delete_bucket(BucketName).
+%-spec delete_bucket(string()) -> ok.
+%delete_bucket(BucketName) ->
+%    erlcloud_s3:delete_bucket(BucketName).
 
 -spec delete_bucket(string(), aws_config()) -> ok.
 delete_bucket(BucketName, Config) ->
@@ -349,9 +349,9 @@ make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
 
 % not sure if this is used? doesn't use config.
--spec get_object(string(), string(), proplists:proplist()) -> proplists:proplist().
-get_object(BucketName, Key, Options) ->
-    erlcloud_s3:get_object(BucketName, Key, Options).
+%-spec get_object(string(), string(), proplists:proplist()) -> proplists:proplist().
+%get_object(BucketName, Key, Options) ->
+%    erlcloud_s3:get_object(BucketName, Key, Options).
 
 -spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->
@@ -390,9 +390,9 @@ list_object_versions(BucketName, Options, Config) ->
     erlcloud_s3:list_object_versions(BucketName, Options, Config).
 
 % is this used?
--spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}] | aws_config()) -> proplists:proplist().
-put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
-    erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
+%-spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}] | aws_config()) -> proplists:proplist().
+%put_object(BucketName, Key, Value, Options, HTTPHeaders) ->
+%    erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders).
 
 -spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}],  aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
