@@ -175,19 +175,21 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
                 list_to_integer(Port1)
         end,
     Domain = case Ipv of 4 -> Domain1; _ -> "[" ++ Domain0 ++ "]" end,
-    %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf...
-    %% s3 wants bucketname before host (or it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443...
+
+    %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf.
+    %% s3 wants bucketname before host (actually, it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443.
+    %%
+    %% UPDATE
     %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests.
     %% Path-style requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see:
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
-
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
-% old mini_s3 wanted accesskey, secretaccesskey, host, bucketaccesstype, e.g.:
+% old mini_s3:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
-% erlcloud wants accesskey, secretaccesskey, host, port.
+%   mini_s3:new(accesskey, secretaccesskey, host, bucketaccesstype)
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     {BucketAccessMethod, BucketAfterHost} = case BucketAccessType of path -> {path, true}; _ -> {vhost, false} end,
@@ -198,11 +200,7 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
     }.
 
 % erlcloud has no new/5, and arguments differ.
-% erlcloud's new/4 expects accesskeyid, secretaccesskey, host, port:
-%   new(AccessKeyID::string(), SecretAccessKey::string(), Host::string(), Port::non_neg_integer()) -> aws_config()
 % for now, attempting conversion to new/4 (dropping SslOpts).
-%
-% NOTE: this is called in oc_erchef in: src/oc_erchef/apps/chef_objects/src/chef_s3.erl, line 168
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
@@ -297,13 +295,13 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
-% implementation of expiration windows for sigv4, for making batches
-% of cacheable presigned URLs
+% Implementation of expiration windows for sigv4, for making batches
+% of cacheable presigned URLs.
 %
 %          past       present      future
 %                        |
 % ------+------+------+--+---+------+------+------+------
-%       |      |      |  |   |      |      |      |  time
+%       |      |      |  |   |      |      |      | time
 % ------+------+------+--+---+------+------+------+------
 %                     |    ^ |
 %      x-amz-date ----+    | +---- x-amz-expires
@@ -312,16 +310,16 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %                     |------|
 %                     Lifetime
 %
-% given a TTL, x-amz-expires should be set to be the closest expiry-window
-% boundary >= present+TTL, ie present+TTL selects the expiry-window. squelch
+% Given a TTL, x-amz-expires should be set to be the closest expiry-window
+% boundary >= present+TTL, ie present+TTL selects the expiry-window. Squelch
 % any resulting Lifetime of greater than one week to one week.
 %
-% 1) segment all of time into 'windows' of width expiry-window-size.
-% 2) align x-amz-date to nearest expiry-window boundary less than present time.
-% 3) align x-amz-expires to nearest expiry-window boundary greater than present time.
-% 4) the right edge of present+TTL is a 'selector' to determine which expiration
+% 1) Segment all of time into 'windows' of width expiry-window-size.
+% 2) Align x-amz-date to nearest expiry-window boundary less than present time.
+% 3) Align x-amz-expires to nearest expiry-window boundary greater than present time.
+% 4) The right edge of present+TTL is a 'selector' to determine which expiration
 %    window we are in, thus determining final value of x-amz-expires and Lifetime.
-% 5) while x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
+% 5) While x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
 % 6) Lifetime = x-amz-expires - x-amz-date, or WEEKSEC, whichever is less.
 %-----------------------------------------------------------------------------------
 -define(WEEKSEC, 604800).
