@@ -123,58 +123,53 @@ manual_start() ->
     application:start(ssl),
     application:start(inets).
 
--spec parse_ipv_host_domain(string()) -> {pos_integer(), list(), string()}.
-parse_ipv_host_domain(Host0) ->
-    case string:lexemes(Host0, "[]") of
-        % ipv4
-        [Host0] ->
-            Domain0 = "",
-            {4, Host0, Domain0};
-        % ipv6
-        [Scheme0,    Domain0, Port0] -> {6, lists:flatten([Scheme0,    $\r, Port0]), Domain0};
-        ["http://",  Domain0       ] -> {6, lists:flatten(["http://",  $\r       ]), Domain0};
-        ["https://", Domain0       ] -> {6, lists:flatten(["https://", $\r       ]), Domain0};
-        [            Domain0, Port0] -> {6, lists:flatten([            $\r, Port0]), Domain0};
-        [            Domain0       ] -> {6,               [            $\r       ] , Domain0}
+-spec discern_ipv(string()) -> pos_integer().
+discern_ipv(Url) ->
+    case lists:member($[, Url) andalso lists:member($], Url) of
+        true  -> 6;
+        false -> 4
     end.
 
 -spec new(string() | binary(), string() | binary(), string()) -> aws_config().
-new(AccessKeyID, SecretAccessKey, Host0) ->
-    % chef-server crams scheme://host:port all into into Host; erlcloud wants them separate.
-    % Assume:
-    %   Host   == scheme://domain:port | scheme://domain | domain:port | domain
-    %   scheme == http | https
+new(AccessKeyID, SecretAccessKey, Url) ->
+    Ipv     = discern_ipv(Url),
 
-    % ipv4/6 detection
-    {Ipv, Host, Domain0} = parse_ipv_host_domain(Host0),
-
-    case string:split(Host, ":", all) of
-        % Host == scheme://domain:port
-        [Scheme1, [$/, $/ | Domain1] | [Port1]] ->
-            Scheme = Scheme1 ++ "://";
-        % Host == scheme://domain
-        [Scheme1, [$/, $/ | Domain1]] ->
-            Scheme = Scheme1 ++ "://",
-            Port1  = undefined;
-        % Host == domain:port
-        [Domain1, Port1] ->
-            Scheme = case Port1 of "80" -> "http://"; _ -> "https://" end;
-        % Host == domain
-        [Domain1] ->
-            Scheme = "https://",
-            Port1  = undefined
-    end,
-    Port =
-        case Port1 of
-            undefined ->
-                case Scheme of
-                    "https://" -> 443;
-                    "http://"  -> 80
-                end;
-            _ ->
-                list_to_integer(Port1)
+    Parse   =
+        case {Ipv, Url} of
+            % uri_string:parse won't parse ipv6 with missing scheme. detect and fix.
+            {6, [$[ | _]} -> uri_string:parse(["x://", Url]);
+            _             -> uri_string:parse(         Url )
         end,
-    Domain = case Ipv of 4 -> Domain1; _ -> "[" ++ Domain0 ++ "]" end,
+
+    Path0   = maps:get(path  , Parse           ),
+    Host0   = maps:get(host  , Parse, undefined),
+    Scheme0 = maps:get(scheme, Parse, undefined),
+    Port0   = maps:get(port  , Parse, undefined),
+
+    % uri_string:parse doesn't parse "host" or "host:port" correctly. detect and fix.
+    {Scheme1, Host1, Path1, Port1} =
+        case {Scheme0, Host0, Path0, Port0} of
+            {undefined, undefined, _, undefined} when Path0 /= undefined -> {undefined, Path0, "", undefined};
+            {_,         undefined, _, undefined} -> {undefined, Scheme0, "",    list_to_integer(Path0)};
+             _                                   -> {Scheme0,   Host0,   Path0, Port0                 }
+        end,
+
+    Host2   = case Ipv of 4 -> Host1; _ -> "[" ++ Host1 ++ "]" end,
+
+    {Scheme, Port} =
+        case {Scheme1, Port1} of
+            {undefined, undefined} -> {"https://",   443};
+            {undefined,        80} -> {"http://",     80};
+            {undefined,         _} -> {"https://", Port1};
+            {"http",    undefined} -> {"http://",     80};
+            {"http",            _} -> {"http://",  Port1};
+            {"https",   undefined} -> {"https://",   443};
+            {"https",           _} -> {"https://", Port1};
+            {"x",       undefined} -> {"https://",   443};
+            {"x",              80} -> {"http://",     80};
+            {"x",               _} -> {"https://", Port1};
+            _                      -> {Scheme1,    Port1}
+        end,
 
     %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf.
     %% s3 wants bucketname before host (actually, it takes it either way) e.g. https://bookshelf.api.chef-server.dev:443.
@@ -185,7 +180,7 @@ new(AccessKeyID, SecretAccessKey, Host0) ->
     %% for further discussion, see:
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Domain, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 % old mini_s3:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
