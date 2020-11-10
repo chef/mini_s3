@@ -251,7 +251,8 @@ list_objects(BucketName, Options) ->
 list_objects(BucketName, Options, Config) ->
     List = erlcloud_s3:list_objects(BucketName, Options, Config),
     [{name, Name} | Rest] = List,
-    [{name, http_uri:decode(Name)} | Rest].
+    %[{name, http_uri:decode(Name)} | Rest].
+    [{name, decode(Name)} | Rest].
 
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name()) -> term().
 get_bucket_attribute(BucketName, AttributeName) ->
@@ -399,9 +400,38 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    %Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
+
+% ----------------------------------------------------
+% local functions
+% ----------------------------------------------------
+
+-spec decode(string() | binary()) -> string() | binary().
+decode(String) when is_list(String) ->
+    do_decode(String);
+decode(String) when is_binary(String) ->
+    do_decode_binary(String).
+
+do_decode([$%,Hex1,Hex2|Rest]) ->
+    [hex2dec(Hex1)*16+hex2dec(Hex2)|do_decode(Rest)];
+do_decode([First|Rest]) ->
+    [First|do_decode(Rest)];
+do_decode([]) ->
+    [].
+
+do_decode_binary(<<$%, Hex:2/binary, Rest/bits>>) ->
+    <<(binary_to_integer(Hex, 16)), (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<First:1/binary, Rest/bits>>) ->
+    <<First/binary, (do_decode_binary(Rest))/binary>>;
+do_decode_binary(<<>>) ->
+    <<>>.
+
+hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
+hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
+hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
 
 % ----------------------------------------------------
 % currently unused
