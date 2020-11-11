@@ -137,8 +137,8 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     Parse   =
         case {Ipv, Url} of
             % uri_string:parse won't parse ipv6 with missing scheme. detect and fix.
-            {6, [$[ | _]} -> uri_string:parse(["x://", Url]);
-            _             -> uri_string:parse(         Url )
+            {6, [$[ | _]} -> uri_string:parse(["no-scheme://", Url]);
+            _             -> uri_string:parse(                 Url )
         end,
 
     Path0   = maps:get(path  , Parse           ),
@@ -146,10 +146,21 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     Scheme0 = maps:get(scheme, Parse, undefined),
     Port0   = maps:get(port  , Parse, undefined),
 
-    % uri_string:parse doesn't parse "host" or "host:port" correctly. detect and fix.
+    % uri_string:parse parses URLs shaped as "host" or "host:port" incorrectly, e.g.:
+    %
+    %   % should be #{host => "host"}
+    %   > uri_string:parse("host").
+    %   #{path => "host"}
+    %
+    %   % should be #{host => "host", port => 80}
+    %   > uri_string:parse("host:80").
+    %   #{path => "80",scheme => "host"}
+    %
+    % detect and repair any erroneous parse.
     {Scheme1, Host1, Path1, Port1} =
         case {Scheme0, Host0, Path0, Port0} of
-            {undefined, undefined, _, undefined} when Path0 /= undefined -> {undefined, Path0, "", undefined};
+            {undefined, undefined, _, undefined} when Path0 /= undefined
+                                                 -> {undefined, Path0,   "",    undefined             };
             {_,         undefined, _, undefined} -> {undefined, Scheme0, "",    list_to_integer(Path0)};
              _                                   -> {Scheme0,   Host0,   Path0, Port0                 }
         end,
@@ -158,17 +169,17 @@ new(AccessKeyID, SecretAccessKey, Url) ->
 
     {Scheme, Port} =
         case {Scheme1, Port1} of
-            {undefined, undefined} -> {"https://",   443};
-            {undefined,        80} -> {"http://",     80};
-            {undefined,         _} -> {"https://", Port1};
-            {"http",    undefined} -> {"http://",     80};
-            {"http",            _} -> {"http://",  Port1};
-            {"https",   undefined} -> {"https://",   443};
-            {"https",           _} -> {"https://", Port1};
-            {"x",       undefined} -> {"https://",   443};
-            {"x",              80} -> {"http://",     80};
-            {"x",               _} -> {"https://", Port1};
-            _                      -> {Scheme1,    Port1}
+            {undefined,   undefined} -> {"https://",   443};
+            {undefined,          80} -> {"http://",     80};
+            {undefined,           _} -> {"https://", Port1};
+            {"http",      undefined} -> {"http://",     80};
+            {"http",              _} -> {"http://",  Port1};
+            {"https",     undefined} -> {"https://",   443};
+            {"https",             _} -> {"https://", Port1};
+            {"no-scheme", undefined} -> {"https://",   443};
+            {"no-scheme",        80} -> {"http://",     80};
+            {"no-scheme",         _} -> {"https://", Port1};
+            _                        -> {Scheme1,    Port1}
         end,
 
     %% bookshelf wants bucketname after host e.g. https://api.chef-server.dev:443/bookshelf.
@@ -178,6 +189,7 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     %% amazon: "Buckets created after September 30, 2020, will support only virtual hosted-style requests.
     %% Path-style requests will continue to be supported for buckets created on or before this date."
     %% for further discussion, see:
+    %%  https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
     (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
@@ -196,6 +208,7 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 
 % erlcloud has no new/5, and arguments differ.
 % for now, attempting conversion to new/4 (dropping SslOpts).
+% see: https://github.com/chef/chef-server/issues/2171
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
