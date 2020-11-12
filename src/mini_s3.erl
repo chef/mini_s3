@@ -26,6 +26,7 @@
          new/4,
          new/5,
          new/6,
+         with_timeout/2,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
@@ -152,6 +153,15 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts) ->
 -spec new(string(), string(), string(), bucket_access_type(), proplists:proplist(), integer() | infinity) -> config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, HttpTimeout) ->
     Config = new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts),
+    with_timeout(Config, HttpTimeout).
+
+
+%%  @doc
+%%  Returns a config with the specified timeout set.
+%%  Can be useful for specifying different timeouts to separate calls.
+%%
+-spec with_timeout(config(), integer() | infinity) -> config().
+with_timeout(Config, HttpTimeout) ->
     Config#config{http_timeout = HttpTimeout}.
 
 
