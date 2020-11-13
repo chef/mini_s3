@@ -54,8 +54,9 @@ format_s3_uri_test_() ->
     [ ?_assertEqual(Expect, format_s3_uri(Config(Url, Type), "bucket"))
       || {Url, Type, Expect} <- Tests ].
 
-% this should be included in make_expire_win_test(), but timeout doesn't work unless it's named main_test_().
+% NOTE: this should be included in make_expire_win_test(), but timeout doesn't work unless the function is named main_test_().
 % note that this test is very sensitive to timing, and will fail if the timing is off.
+% for reference: -spec make_expire_win(TTL::non_neg_integer(), WinSize::non_neg_integer()) -> {XAmzDate::string(), Lifetime::non_neg_integer()}.
 main_test_() ->
     {timeout, 60,
         fun() ->
@@ -69,7 +70,6 @@ main_test_() ->
         end
     }.
  
-% note that this test is very sensitive to timing, and will fail if the timing is off.
 make_expire_win_test() ->
     % test that this property holds:
     %   lifetime >= ttl; lifetime >= expire_win_size
