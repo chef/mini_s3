@@ -334,7 +334,7 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 % 6) Lifetime = x-amz-expires - x-amz-date, or WEEKSEC, whichever is less.
 %-----------------------------------------------------------------------------------
 -define(WEEKSEC, 604800).
--spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {string(), non_neg_integer()}.
+-spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {XAmzDate::string(), Lifetime::non_neg_integer()}.
 make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
     Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
     XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
