@@ -70,6 +70,8 @@
 -compile([export_all, nowarn_export_all]).
 -endif.
 
+-export([expiration_time/1]).
+
 -type s3_bucket_attribute_name() :: acl
                                   | location
                                   | logging
@@ -344,6 +346,38 @@ make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
             _    -> L
         end,
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
+
+%-----------------------------------------------------------------------------------------
+%% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+-define(EPOCH, 62167219200).
+-define(DAY, 86400).
+
+%% @doc Number of seconds since the Epoch that a request can be valid for, specified by
+%% TimeToLive, which is the number of seconds from "right now" that a request should be
+%% valid. If the argument provided is a tuple, we use the interval logic that will only
+%% result in Interval / 86400 unique expiration times per day
+-spec expiration_time(TimeToLive :: non_neg_integer() | {non_neg_integer(), non_neg_integer()}) ->
+                             Expires::non_neg_integer().
+expiration_time({TimeToLive, Interval}) ->
+    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
+    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
+    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
+    %% How many seconds are we into today?
+    TodayOffset = NowSecs - MidnightSecs,
+    Buffer = case (TodayOffset + Interval) >= ?DAY of
+        %% true if we're in the day's last interval, don't let it spill into tomorrow
+        true ->
+            ?DAY - TodayOffset;
+        %% false means this interval is bounded by today
+        _ ->
+            Interval - (TodayOffset rem Interval)
+    end,
+    NowSecs + Buffer - ?EPOCH + TimeToLive;
+expiration_time(TimeToLive) ->
+    Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
+    (Now - ?EPOCH) + TimeToLive.
+
+%-----------------------------------------------------------------------------------------
 
 -spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->
