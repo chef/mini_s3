@@ -60,6 +60,7 @@
 -export([make_authorization/10,
          manual_start/0,
          make_expire_win/2,
+         expiration_time_v4/1,
          universaltime/0
 ]).
 
@@ -290,7 +291,9 @@ if_not_empty(_, Value) ->
 
 -spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()}, proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
-    {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
+    %Date = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())) div ExpireWin * ExpireWin,
+    {Date, Lifetime} = expiration_time_v4({TTL, ExpireWin}),
+    %{Date, Lifetime} = make_expire_win(TTL, ExpireWin),
     s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
@@ -347,10 +350,42 @@ make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
         end,
     {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
 
+%% Prajakta testing:
 %-----------------------------------------------------------------------------------------
 %% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+%% use midnight instead of EPOCH
 -define(EPOCH, 62167219200).
 -define(DAY, 86400).
+
+%% @doc Number of seconds since the request is made that a request can be valid for, specified by
+%% TimeToLive, which is the number of seconds from "right now" that a request should be
+%% valid. If the argument provided is a tuple, we use the interval logic that will only
+%% result in Interval / 86400 unique expiration times per day
+-spec expiration_time_v4({TimeToLive :: non_neg_integer()| {non_neg_integer(), non_neg_integer()}}) ->
+    {XAmzDate::string(), Lifetime::non_neg_integer()}.
+expiration_time_v4({TimeToLive, Interval}) ->
+    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
+    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
+    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
+    %% How many seconds are we into today?
+    TodayOffset = NowSecs - MidnightSecs,
+    %XAmzDate in seconds starting Midnight.
+    XAmzDateSecOffset = TodayOffset div Interval * Interval,
+    %This last interval in a ?DAY is bounded by ?DAY;
+    NewInterval = case ( XAmzDateSecOffset + Interval ) > ?DAY of
+                       true -> ?DAY - XAmzDateSecOffset;
+                       _    -> Interval
+                  end,
+    Lifetime = case (L = TimeToLive + NewInterval) > ?WEEKSEC of
+                   true -> ?WEEKSEC;
+                   _ -> L
+               end,
+    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSecOffset + MidnightSecs)), Lifetime}.
+
+%-----------------------------------------------------------------------------------------
+%-----------------------------------------------------------------------------------------
+%% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+%%-define(DAY, 86400).
 
 %% @doc Number of seconds since the Epoch that a request can be valid for, specified by
 %% TimeToLive, which is the number of seconds from "right now" that a request should be
