@@ -59,7 +59,7 @@
 
 -export([make_authorization/10,
          manual_start/0,
-         make_expire_win/2,
+         expiration_time_v4/1,
          universaltime/0
 ]).
 
@@ -290,7 +290,7 @@ if_not_empty(_, Value) ->
 
 -spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()}, proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
-    {Date, Lifetime} = make_expire_win(TTL, ExpireWin),
+    {Date, Lifetime} = expiration_time_v4({TTL, ExpireWin}),
     s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
@@ -306,8 +306,8 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
-% Implementation of expiration windows for sigv4, for making batches
-% of cacheable presigned URLs.
+% Lincoln Baker's implementation from scratch of expiration windows for sigv4,
+% for making batches of cacheable presigned URLs.
 %
 %          past       present      future
 %                        |
@@ -332,25 +332,51 @@ s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
 %    window we are in, thus determining final value of x-amz-expires and Lifetime.
 % 5) While x-amz-expires - present < TTL, x-amz-expires += expiry-window-size.
 % 6) Lifetime = x-amz-expires - x-amz-date, or WEEKSEC, whichever is less.
-%-----------------------------------------------------------------------------------
+%
+% USAGE: {Date, Lifetime} = make_expire_win(TTL, ExpireWin)
+%
 -define(WEEKSEC, 604800).
--spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {XAmzDate::string(), Lifetime::non_neg_integer()}.
-make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
-    Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
-    XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
-    ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
-    XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
-    Lifetime =
-        case (L = XAmzExpires - XAmzDateSec) > ?WEEKSEC of
-            true -> ?WEEKSEC;
-            _    -> L
-        end,
-    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
+%-spec make_expire_win(non_neg_integer(), non_neg_integer()) -> {XAmzDate::string(), Lifetime::non_neg_integer()}.
+%make_expire_win(TTL, ExpireWinSiz) when ExpireWinSiz > 0 ->
+%    Present = calendar:datetime_to_gregorian_seconds(calendar:now_to_universal_time(os:timestamp())),
+%    XAmzDateSec = Present div ExpireWinSiz * ExpireWinSiz,
+%    ExpirWinMult = ((TTL div ExpireWinSiz) + (case TTL rem ExpireWinSiz > 0 of true -> 1; _ -> 0 end)),
+%    XAmzExpires = case ExpirWinMult of 0 -> 1; _ -> ExpirWinMult end * ExpireWinSiz + XAmzDateSec,
+%    Lifetime =
+%        case (L = XAmzExpires - XAmzDateSec) > ?WEEKSEC of
+%            true -> ?WEEKSEC;
+%            _    -> L
+%        end,
+%    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSec)), Lifetime}.
 
-%-----------------------------------------------------------------------------------------
 %% calendar:datetime_to_gregorian_seconds({{1970, 1, 1}, {0, 0, 0}}).
+%% use midnight instead of EPOCH
 -define(EPOCH, 62167219200).
 -define(DAY, 86400).
+
+%% Prajakta's expiration windows, retrofitted from the old sigv2 implementation.
+%% @doc Number of seconds since the request is made that a request can be valid for, specified by
+%% TimeToLive, which is the number of seconds from "right now" that a request should be
+%% valid. If the argument provided is a tuple, we use the interval logic that will only
+%% result in Interval / 86400 unique expiration times per day
+expiration_time_v4({TimeToLive, Interval}) ->
+    {{NowY, NowMo, NowD},{_,_,_}} = Now = mini_s3:universaltime(),
+    NowSecs = calendar:datetime_to_gregorian_seconds(Now),
+    MidnightSecs = calendar:datetime_to_gregorian_seconds({{NowY, NowMo, NowD},{0,0,0}}),
+    %% How many seconds are we into today?
+    TodayOffset = NowSecs - MidnightSecs,
+    %XAmzDate in seconds starting Midnight.
+    XAmzDateSecOffset = TodayOffset div Interval * Interval,
+    %This last interval in a ?DAY is bounded by ?DAY;
+    NewInterval = case ( XAmzDateSecOffset + Interval ) > ?DAY of
+                       true -> ?DAY - XAmzDateSecOffset;
+                       _    -> Interval
+                  end,
+    Lifetime = case (L = TimeToLive + NewInterval) > ?WEEKSEC of
+                   true -> ?WEEKSEC;
+                   _ -> L
+               end,
+    {erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(XAmzDateSecOffset + MidnightSecs)), Lifetime}.
 
 %% @doc Number of seconds since the Epoch that a request can be valid for, specified by
 %% TimeToLive, which is the number of seconds from "right now" that a request should be
@@ -376,8 +402,6 @@ expiration_time({TimeToLive, Interval}) ->
 expiration_time(TimeToLive) ->
     Now = calendar:datetime_to_gregorian_seconds(mini_s3:universaltime()),
     (Now - ?EPOCH) + TimeToLive.
-
-%-----------------------------------------------------------------------------------------
 
 -spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->

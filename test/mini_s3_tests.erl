@@ -53,6 +53,63 @@ format_s3_uri_test_() ->
     [ ?_assertEqual(Expect, format_s3_uri(Config(Url, Type), "bucket"))
       || {Url, Type, Expect} <- Tests ].
 
+-define(MIDNIGHT, 63589536000).
+-define(DAY, 86400).
+-define(HOUR, 3600).
+-define(WEEK, 604800).
+
+expiration_time_test_() ->
+    Tests = [
+             %% {TTLSecs, IntervalSecs, MockedTimestamp, ExpectedExpiry}
+             {{3600, 900}, {{2015,1,27},{0,0,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,0,10}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,1,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,1,10}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,3,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,3,30}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,5,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,10,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,14,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,14,59}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,15,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 900))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,15,1}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 900))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,29,59}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 900))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,30,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 1800))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,44,59}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 1800))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,45,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 2700))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{0,59,59}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 2700))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{1,0,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + 3600))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{23,44,0}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY - 1800))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,27},{23,58,0}}, {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY - 900))), (?HOUR + 900)}},
+             {{3600, 900}, {{2015,1,28},{0,0,0}}  , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY))), (?HOUR + 900)}},
+
+             %% There are 86400 seconds in a day. What happens if the interval is not evenly
+             %% divisible in that time? Take 7m for example. 420 secs goes into a day 205.71
+             %% times which is a remainder of 300 seconds. We should make sure that we
+             %% restart the intervals at midnight, so we don't have day to day drift
+
+             {{3600, 420}, {{2015,1,27},{23,59,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY - 300))), (?HOUR + 300)}},
+             {{3600, 420}, {{2015,1,28},{0,0,0}}   , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY))), (?HOUR + 420)}},
+
+             {{604800, 420}, {{2015,1,27},{0,0,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?WEEK)}}
+
+             %% Let's test the old functionality too
+%             {3600, {{2015,1,27},{0,0,0}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR)}},
+%             {3600, {{2015,1,27},{0,0,1}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 1)}},
+%             {3600, {{2015,1,27},{0,1,1}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT))), (?HOUR + 61)}},
+%             {3600, {{2015,1,28},{0,1,1}} , {(erlcloud_aws:iso_8601_basic_time(calendar:gregorian_seconds_to_datetime(?MIDNIGHT + ?DAY))), (?DAY + ?HOUR + 61)}}
+            ],
+
+    TestFun = fun(Arg, MockedTime) ->
+                      meck:new(mini_s3, [unstick, passthrough]),
+                      meck:expect(mini_s3, universaltime, fun() -> MockedTime end),
+                      Expiry = mini_s3:expiration_time_v4(Arg),
+                      meck:unload(mini_s3),
+                      Expiry
+              end,
+    [ ?_assertEqual(Expect, TestFun(Arg, MockedTimestamp))
+      || {Arg, MockedTimestamp, Expect} <- Tests].
+
 % NOTE: this should be included in make_expire_win_test(), but timeout doesn't work unless the function is named main_test_().
 % note that this test is very sensitive to timing, and will fail if the timing is off.
 % for reference: -spec make_expire_win(TTL::non_neg_integer(), WinSize::non_neg_integer()) -> {XAmzDate::string(), Lifetime::non_neg_integer()}.
@@ -60,30 +117,30 @@ main_test_() ->
     {timeout, 60,
         fun() ->
                 % 10 expiration windows of size 1sec created 1sec apart should be 10 unique windows (i.e. no duplicates)
-                Set1 = [{timer:sleep(1000), mini_s3:make_expire_win(0, 1)} || _ <- [1,2,3,4,5,6,7,8,9,0]],
+                Set1 = [{timer:sleep(1000), mini_s3:expiration_time_v4({0, 1})} || _ <- [1,2,3,4,5,6,7,8,9,0]],
                 10   = length(sets:to_list(sets:from_list(Set1))),
 
                 % 100 expiration windows of large size created quickly should be mostly duplicates
-                Set2 = [mini_s3:make_expire_win(0, 1000) || _ <- lists:duplicate(100, 0)],
+                Set2 = [mini_s3:expiration_time_v4({0, 1000}) || _ <- lists:duplicate(100, 0)],
                 true = 2 >= length(sets:to_list(sets:from_list(Set2)))
         end
     }.
  
-make_expire_win_test() ->
+expiration_time_v4_test() ->
     % test that this property holds:
     %   lifetime >= ttl; lifetime >= expire_win_size
-    {_,    1} = mini_s3:make_expire_win(0,       1),
-    {_,    1} = mini_s3:make_expire_win(1,       1),
-    {_,    2} = mini_s3:make_expire_win(2,       1),
-    {_,  100} = mini_s3:make_expire_win(0,     100),
-    {_,  100} = mini_s3:make_expire_win(99,    100),
-    {_,  100} = mini_s3:make_expire_win(100,   100),
-    {_,   L0} = mini_s3:make_expire_win(101,   100),
+    {_,    1} = mini_s3:expiration_time_v4({0,       1}),
+    {_,    2} = mini_s3:expiration_time_v4({1,       1}),
+    {_,    3} = mini_s3:expiration_time_v4({2,       1}),
+    {_,  100} = mini_s3:expiration_time_v4({0,     100}),
+    {_,  199} = mini_s3:expiration_time_v4({99,    100}),
+    {_,  200} = mini_s3:expiration_time_v4({100,   100}),
+    {_,   L0} = mini_s3:expiration_time_v4({101,   100}),
     true = L0 >= 101,
-    {_, 1000} = mini_s3:make_expire_win(0,    1000),
-    {_, 1000} = mini_s3:make_expire_win(999,  1000),
-    {_, 1000} = mini_s3:make_expire_win(1000, 1000),
-    {_,   L1} = mini_s3:make_expire_win(1001, 1000),
+    {_, 1000} = mini_s3:expiration_time_v4({0,    1000}),
+    {_, 1999} = mini_s3:expiration_time_v4({999,  1000}),
+    {_, 2000} = mini_s3:expiration_time_v4({1000, 1000}),
+    {_,   L1} = mini_s3:expiration_time_v4({1001, 1000}),
     true = L1 >= 1001.
 
 new_test() ->
