@@ -19,7 +19,11 @@
 -module(mini_s3_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include("../src/internal.hrl").
+-include_lib("erlcloud/include/erlcloud_aws.hrl").
+
+-spec format_s3_uri(aws_config(), string()) -> string().
+format_s3_uri(Config, Bucket) ->
+    erlcloud_s3:get_object_url(Bucket, "", Config).
 
 format_s3_uri_test_() ->
     Config = fun(Url, Type) ->
