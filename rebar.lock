@@ -1,8 +1,0 @@
-[{<<"envy">>,
-  {git,"https://github.com/markan/envy.git",
-       {ref,"0148fb4b7ed0e188511578e98b42d6e7dde0ebd1"}},
-  0},
- {<<"ibrowse">>,
-  {git,"git://github.com/cmullaparthi/ibrowse.git",
-       {ref,"c97136cfb61fcc6f39d4e7da47372a64f7fca04e"}},
-  0}].
