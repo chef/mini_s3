@@ -48,6 +48,7 @@
          new/3,
          new/4,
          new/5,
+         %new/6,
          put_object/6,
          s3_url/6,
          s3_url/7,
@@ -194,7 +195,11 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     %%  https://aws.amazon.com/blogs/aws/amazon-s3-path-deprecation-plan-the-rest-of-the-story/
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+
+    {ok, Token } = application:get_env(erlcloud, aws_security_token),
+    {ok, Region} = application:get_env(erlcloud, aws_region),
+
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{security_token=Token, aws_region=Region, s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 % old mini_s3:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
@@ -214,6 +219,12 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType) ->
 -spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist()) -> aws_config().
 new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, _SslOpts) ->
     new(AccessKeyID, SecretAccessKey, Host, BucketAccessType).
+
+%-spec new(string() | binary(), string() | binary(), string(), bucket_access_type(), proplists:proplist(), proplists:proplist()) -> aws_config().
+%new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, TempCreds ) ->
+%    [{aws_region, Region}, {security_token, Token}] = lists:sort(TempCreds),
+%    Config = new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts),
+%    Config#aws_config{aws_region=Region, security_token=Token}.
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
 
