@@ -196,10 +196,14 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     %%  https://github.com/chef/chef-server/issues/2088
     %%  https://github.com/chef/chef-server/issues/1911
 
-    {ok, Token } = application:get_env(erlcloud, aws_security_token),
-    {ok, Region} = application:get_env(erlcloud, aws_region),
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            io:format("~nmini_s3: no AWS_ACCESS_KEY_ID~n", []);
+        X ->
+            io:format("~nmini_s3: AWS_ACCESS_KEY_ID = ~p", [X])
+    end,
 
-    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{security_token=Token, aws_region=Region, s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
+    (erlcloud_s3:new(AccessKeyID, SecretAccessKey, Host2++Path1, Port))#aws_config{s3_scheme=Scheme, s3_bucket_after_host=true, s3_bucket_access_method=path}.
 
 % old mini_s3:
 %   -spec new(string(), string(), string(), bucket_access_type()) -> aws_config().
@@ -234,7 +238,12 @@ copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options) ->
 
 -spec copy_object(string(), string(), string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config) ->
-    erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options, Config);
+        _ ->
+            erlcloud_s3:copy_object(DestBucketName, DestKeyName, SrcBucketName, SrcKeyName, Options)
+    end.
 
 -spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint() | aws_config()) -> ok.
 create_bucket(BucketName, ACL, LocationConstraint) ->
@@ -242,11 +251,21 @@ create_bucket(BucketName, ACL, LocationConstraint) ->
 
 -spec create_bucket(string(), s3_bucket_acl(), s3_location_constraint(), aws_config()) -> ok.
 create_bucket(BucketName, ACL, LocationConstraint, Config) ->
-    erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint, Config);
+        _ ->
+            erlcloud_s3:create_bucket(BucketName, ACL, LocationConstraint)
+    end.
 
 -spec delete_bucket(string(), aws_config()) -> ok.
 delete_bucket(BucketName, Config) ->
-    erlcloud_s3:delete_bucket(BucketName, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:delete_bucket(BucketName, Config);
+        _ ->
+            erlcloud_s3:delete_bucket(BucketName)
+    end.
 
 -spec delete_object(string(), string()) -> proplists:proplist().
 delete_object(BucketName, Key) ->
@@ -254,7 +273,12 @@ delete_object(BucketName, Key) ->
 
 -spec delete_object(string(), string(), aws_config()) -> proplists:proplist().
 delete_object(BucketName, Key, Config) ->
-    erlcloud_s3:delete_object(BucketName, Key, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:delete_object(BucketName, Key, Config);
+        _ ->
+            erlcloud_s3:delete_object(BucketName, Key)
+    end.
 
 -spec delete_object_version(string(), string(), string()) -> proplists:proplist().
 delete_object_version(BucketName, Key, Version) ->
@@ -262,11 +286,21 @@ delete_object_version(BucketName, Key, Version) ->
 
 -spec delete_object_version(string(), string(), string(), aws_config()) -> proplists:proplist().
 delete_object_version(BucketName, Key, Version, Config) ->
-    erlcloud_s3:delete_object_version(BucketName, Key, Version, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:delete_object_version(BucketName, Key, Version, Config);
+        _ ->
+            erlcloud_s3:delete_object_version(BucketName, Key, Version)
+    end.
 
 -spec list_buckets(aws_config()) -> proplists:proplist().
 list_buckets(Config) ->
-    Result = erlcloud_s3:list_buckets(Config),
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            Result = erlcloud_s3:list_buckets(Config);
+        _ ->
+            Result = erlcloud_s3:list_buckets()
+    end,
     case proplists:lookup(buckets, Result) of none -> [{buckets, []}]; X -> [X] end.
 
 -spec list_objects(string(), proplists:proplist()) -> proplists:proplist().
@@ -275,7 +309,12 @@ list_objects(BucketName, Options) ->
 
 -spec list_objects(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 list_objects(BucketName, Options, Config) ->
-    List = erlcloud_s3:list_objects(BucketName, Options, Config),
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            List = erlcloud_s3:list_objects(BucketName, Options, Config);
+        _ ->
+            List = erlcloud_s3:list_objects(BucketName, Options)
+    end,
     [{name, Name} | Rest] = List,
     %[{name, http_uri:decode(Name)} | Rest].
     [{name, decode(Name)} | Rest].
@@ -286,7 +325,12 @@ get_bucket_attribute(BucketName, AttributeName) ->
 
 -spec get_bucket_attribute(string(), s3_bucket_attribute_name(), aws_config()) -> term().
 get_bucket_attribute(BucketName, AttributeName, Config) ->
-    erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_bucket_attribute(BucketName, AttributeName, Config);
+         _ ->
+            erlcloud_s3:get_bucket_attribute(BucketName, AttributeName)
+    end.
 
 %% Abstraction of universaltime, so it can be mocked via meck
 -spec universaltime() -> calendar:datetime().
@@ -392,7 +436,12 @@ expiration_time(TimeToLive) ->
 
 -spec get_object(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object(BucketName, Key, Options, Config) ->
-    erlcloud_s3:get_object(BucketName, Key, Options, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_object(BucketName, Key, Options, Config);
+        _ ->
+            erlcloud_s3:get_object(BucketName, Key, Options)
+    end.
 
 -spec get_object_acl(string(), string()) -> proplists:proplist().
 get_object_acl(BucketName, Key) ->
@@ -400,15 +449,30 @@ get_object_acl(BucketName, Key) ->
 
 -spec get_object_acl(string(), string(), proplists:proplist() | aws_config()) -> proplists:proplist().
 get_object_acl(BucketName, Key, Config) ->
-    erlcloud_s3:get_object_acl(BucketName, Key, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_object_acl(BucketName, Key, Config);
+        _ ->
+            erlcloud_s3:get_object_acl(BucketName, Key)
+    end.
 
 -spec get_object_acl(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object_acl(BucketName, Key, Options, Config) ->
-    erlcloud_s3:get_object_acl(BucketName, Key, Options, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_object_acl(BucketName, Key, Options, Config);
+        _ ->
+            erlcloud_s3:get_object_acl(BucketName, Key, Options)
+    end.
 
 -spec get_object_metadata(string(), string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 get_object_metadata(BucketName, Key, Options, Config) ->
-    erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_object_metadata(BucketName, Key, Options, Config);
+        _ ->
+            erlcloud_s3:get_object_metadata(BucketName, Key, Options)
+    end.
 
 -spec get_object_torrent(string(), string()) -> proplists:proplist().
 get_object_torrent(BucketName, Key) ->
@@ -416,7 +480,12 @@ get_object_torrent(BucketName, Key) ->
 
 -spec get_object_torrent(string(), string(), aws_config()) -> proplists:proplist().
 get_object_torrent(BucketName, Key, Config) ->
-    erlcloud_s3:get_object_torrent(BucketName, Key, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:get_object_torrent(BucketName, Key, Config);
+        _ ->
+            erlcloud_s3:get_object_torrent(BucketName, Key)
+    end.
 
 -spec list_object_versions(string(), proplists:proplist() | aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options) ->
@@ -424,11 +493,21 @@ list_object_versions(BucketName, Options) ->
 
 -spec list_object_versions(string(), proplists:proplist(), aws_config()) -> proplists:proplist().
 list_object_versions(BucketName, Options, Config) ->
-    erlcloud_s3:list_object_versions(BucketName, Options, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:list_object_versions(BucketName, Options, Config);
+        _ ->
+            erlcloud_s3:list_object_versions(BucketName, Options)
+    end.
 
 -spec put_object(string(), string(), iodata(), proplists:proplist(), [{string(), string()}],  aws_config()) -> proplists:proplist().
 put_object(BucketName, Key, Value, Options, HTTPHeaders, Config) ->
-    erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders, Config);
+        _ ->
+            erlcloud_s3:put_object(BucketName, Key, Value, Options, HTTPHeaders)
+    end.
 
 -spec set_object_acl(string(), string(), proplists:proplist()) -> ok.
 set_object_acl(BucketName, Key, ACL) ->
@@ -436,7 +515,12 @@ set_object_acl(BucketName, Key, ACL) ->
 
 -spec set_object_acl(string(), string(), proplists:proplist(), aws_config()) -> ok.
 set_object_acl(BucketName, Key, ACL, Config) ->
-    erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:set_object_acl(BucketName, Key, ACL, Config);
+        _ ->
+            erlcloud_s3:set_object_acl(BucketName, Key, ACL)
+    end.
 
 -spec set_bucket_attribute(string(), atom(), term()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value) ->
@@ -444,7 +528,12 @@ set_bucket_attribute(BucketName, AttributeName, Value) ->
 
 -spec set_bucket_attribute(string(), atom(), term(), aws_config()) -> ok.
 set_bucket_attribute(BucketName, AttributeName, Value, Config) ->
-    erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config).
+    case os:getenv("AWS_ACCESS_KEY_ID") of
+        false ->
+            erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value, Config);
+        _ ->
+            erlcloud_s3:set_bucket_attribute(BucketName, AttributeName, Value)
+    end.
 
 make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date, AmzHeaders,
                    Host, Resource, Subresource) ->
