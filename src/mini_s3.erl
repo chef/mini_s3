@@ -199,7 +199,7 @@ new(AccessKeyID, SecretAccessKey, Url) ->
     case application:get_env(erlcloud, aws_access_key_id) of
         undefined ->
             io:format("~nmini_s3: no aws_access_key_id~n", []);
-        X ->
+        {ok, X} ->
             io:format("~nmini_s3: aws_access_key_id = ~p", [X])
     end,
 
