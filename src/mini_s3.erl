@@ -448,18 +448,56 @@ if_not_empty("", _V) ->
 if_not_empty(_, Value) ->
     Value.
 
+parse_uri(Uri) ->
+    UriMap = uri_string:parse(Uri),
+    case maps:get(scheme, UriMap, null) of
+        null ->
+            {error, no_scheme};
+        Protocol ->
+            DefaultPort = default_port(Protocol),
+            Port = maps:get(port, UriMap, DefaultPort),
+            Domain1 = maps:get(host, UriMap),
+            Domain2 = maybe_ipv6_host_with_brackets(Domain1),
+            Path = maps:get(path, UriMap, ""),
+            Query = maps:get(query, UriMap, ""),
+            UserInfo = maps:get(userinfo, UriMap, ""),
+            {ok, {Protocol, UserInfo, Domain2, Port, Path, Query}}
+    end.
+
+%% See: https://github.com/erlang/otp/blob/e782c0305e2fcdff0b9ea9c2b365878e602df04a/lib/inets/src/http_lib/http_uri.erl#L100
+default_port("http") ->
+    80;
+default_port("https") ->
+    443;
+default_port("ftp") ->
+    21;
+default_port("ssh") ->
+    22;
+default_port("sftp") ->
+    22;
+default_port("tftp") ->
+    69.
+
+maybe_ipv6_host_with_brackets(Host) ->
+    case inet:parse_strict_address(Host) of
+        {ok, {_, _, _, _, _, _, _, _}} ->
+            "[" ++ Host ++ "]";
+        _ ->
+            Host
+    end.
+
 -spec format_s3_uri(config(), string()) -> string().
 format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
-    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
+    {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}}
+        = parse_uri(S3Url),
     case BAccessType of
         virtual_hosted ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
+            lists:flatten([Protocol, "://",
                            if_not_empty(Host, [Host, $.]),
                            if_not_empty(UserInfo, [UserInfo, "@"]),
                            Domain, ":", erlang:integer_to_list(Port)]);
         path ->
-            lists:flatten([erlang:atom_to_list(Protocol), "://",
+            lists:flatten([Protocol, "://",
                            if_not_empty(UserInfo, [UserInfo, "@"]),
                            Domain, ":", erlang:integer_to_list(Port),
                            if_not_empty(Host, [$/, Host])])
@@ -527,7 +565,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedResource
                                  ]),
 
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
 
@@ -927,7 +965,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
