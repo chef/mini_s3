@@ -451,7 +451,7 @@ if_not_empty(_, Value) ->
 -spec format_s3_uri(config(), string()) -> string().
 format_s3_uri(#config{s3_url=S3Url, bucket_access_type=BAccessType}, Host) ->
     {ok,{Protocol,UserInfo,Domain,Port,_Uri,_QueryString}} =
-        http_uri:parse(S3Url, [{ipv6_host_with_brackets, true}]),
+        http_uri_:parse(S3Url, [{ipv6_host_with_brackets, true}]),
     case BAccessType of
         virtual_hosted ->
             lists:flatten([erlang:atom_to_list(Protocol), "://",
@@ -527,7 +527,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedResource
                                  ]),
 
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
 
@@ -927,7 +927,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
