@@ -527,7 +527,7 @@ make_signed_url_authorization(SecretKey, Method, CanonicalizedResource,
                                   CanonicalizedResource
                                  ]),
 
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, Signature}.
 
 
@@ -927,7 +927,7 @@ make_authorization(AccessKeyId, SecretKey, Method, ContentMD5, ContentType, Date
                     if_not_empty(Host, [$/, Host]),
                     Resource,
                     if_not_empty(Subresource, [$?, Subresource])],
-    Signature = base64:encode(crypto:hmac(sha, SecretKey, StringToSign)),
+    Signature = base64:encode(crypto:mac(hmac, sha, SecretKey, StringToSign)),
     {StringToSign, ["AWS ", AccessKeyId, $:, Signature]}.
 
 default_config() ->
