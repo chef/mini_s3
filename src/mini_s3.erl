@@ -66,7 +66,7 @@
          universaltime/0]).
 
 -ifdef(TEST).
--compile([export_all]).
+-compile([export_all, nowarn_deprecated_function]).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
 
