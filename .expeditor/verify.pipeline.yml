@@ -1,8 +1,8 @@
 ---
 steps:
-- label: ":erlang: 22"
+- label: ":erlang: 24"
   command:
-    - hab pkg install core/erlang22 -bf
+    - hab pkg install core/erlang24 -bf
     - make all
   expeditor:
     executor:
