@@ -25,6 +25,8 @@
          new/3,
          new/4,
          new/5,
+         new/6,
+         with_timeout/2,
          create_bucket/3,
          create_bucket/4,
          delete_bucket/1,
@@ -148,6 +150,19 @@ new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts) ->
      bucket_access_type=BucketAccessType,
      ssl_options=SslOpts}.
 
+-spec new(string(), string(), string(), bucket_access_type(), proplists:proplist(), integer() | infinity) -> config().
+new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts, HttpTimeout) ->
+    Config = new(AccessKeyID, SecretAccessKey, Host, BucketAccessType, SslOpts),
+    with_timeout(Config, HttpTimeout).
+
+
+%%  @doc
+%%  Returns a config with the specified timeout set.
+%%  Can be useful for specifying different timeouts to separate calls.
+%%
+-spec with_timeout(config(), integer() | infinity) -> config().
+with_timeout(Config, HttpTimeout) ->
+    Config#config{http_timeout = HttpTimeout}.
 
 
 -define(XMLNS_S3, "http://s3.amazonaws.com/doc/2006-03-01/").
@@ -837,7 +852,8 @@ s3_xml_request(Config, Method, Host, Path, Subresource, Params, POSTData, Header
 
 s3_request(Config = #config{access_key_id=AccessKey,
                             secret_access_key=SecretKey,
-                            ssl_options=SslOpts},
+                            ssl_options=SslOpts,
+                            http_timeout=HttpTimeout},
            Method, Host, Path, Subresource, Params, POSTData, Headers) ->
     {ContentMD5, ContentType, Body} =
         case POSTData of
@@ -887,19 +903,18 @@ s3_request(Config = #config{access_key_id=AccessKey,
     IbrowseOpts = [ {ssl_options, SslOpts} ],
     Response = case Method of
                    get ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts, HttpTimeout);
                    delete ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts, HttpTimeout);
                    head ->
                        %% ibrowse is unable to handle HEAD request responses that are sent
                        %% with chunked transfer-encoding (why servers do this is not
                        %% clear). While we await a fix in ibrowse, forcing the HEAD request
                        %% to use HTTP 1.0 works around the problem.
                        IbrowseOpts1 = [{http_vsn, {1, 0}} | IbrowseOpts],
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [],
-                                        IbrowseOpts1);
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, [], IbrowseOpts1, HttpTimeout);
                    _ ->
-                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts)
+                       ibrowse:send_req(RequestURI, RequestHeaders1, Method, Body, IbrowseOpts, HttpTimeout)
                end,
     case Response of
         {ok, Status, ResponseHeaders0, ResponseBody} ->
