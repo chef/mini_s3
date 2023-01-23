@@ -167,7 +167,7 @@ new(AccessKeyID, SecretAccessKey, Url) ->
              _                                   -> {Scheme0,   Host0,   Path0, Port0                 }
         end,
 
-    Host2   = case Ipv of 4 -> Host1; _ -> "[" ++ Host1 ++ "]" end,
+    Host2   = case Ipv of 4 -> string:lowercase(Host1); _ -> [$[ | Host1 ++ "]"] end,
 
     {Scheme, Port} =
         case {Scheme1, Port1} of
@@ -291,18 +291,18 @@ if_not_empty(_, Value) ->
 -spec s3_url(atom(), string(), string(), non_neg_integer() | {non_neg_integer(), non_neg_integer()}, proplists:proplist(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, {TTL, ExpireWin}, RawHeaders, Config) ->
     {Date, Lifetime} = expiration_time_v4({TTL, ExpireWin}),
-    s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config);
+    s3_url(Method, BucketName0, Key0, Lifetime, normalize_host(RawHeaders), Date, Config);
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
-    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Config),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], normalize_host(RawHeaders), Config),
     iolist_to_binary(RequestURI).
 
 -spec s3_url(atom(), string(), string(), non_neg_integer(), proplists:proplist(), string(), aws_config()) -> binary().
 s3_url(Method, BucketName0, Key0, Lifetime, RawHeaders, Date, Config)
   when is_list(BucketName0), is_list(Key0), is_tuple(Config) ->
     [BucketName, Key] = [ms3_http:url_encode_loose(X) || X <- [BucketName0, Key0]],
-    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], RawHeaders, Date, Config),
+    RequestURI = erlcloud_s3:make_presigned_v4_url(Lifetime, BucketName, Method, Key, [], normalize_host(RawHeaders), Date, Config),
     iolist_to_binary(RequestURI).
 
 %-----------------------------------------------------------------------------------
@@ -502,6 +502,13 @@ do_decode_binary(<<>>) ->
 hex2dec(X) when (X>=$0) andalso (X=<$9) -> X-$0;
 hex2dec(X) when (X>=$A) andalso (X=<$F) -> X-$A+10;
 hex2dec(X) when (X>=$a) andalso (X=<$f) -> X-$a+10.
+
+-spec normalize_host(proplists:proplist()) -> proplists:proplist().
+normalize_host(Headers) ->
+    case proplists:get_value("host", Headers) of
+        undefined -> Headers;
+        Host -> [{"host", string:lowercase(Host)} | proplists:delete("host", Headers)]
+    end.
 
 % ----------------------------------------------------
 % currently unused
