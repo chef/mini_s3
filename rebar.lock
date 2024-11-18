@@ -11,8 +11,8 @@
   0},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.11.0">>},1},
  {<<"lhttpc">>,
-  {git,"https://github.com/erlcloud/lhttpc",
-       {ref,"8e34985a3cd0ac2a7fc2a88a041554c64d33e74b"}},
+  {git,"https://github.com/chef/lhttpc",
+       {branch,"CHEF-11677/CHEF-12498/lbaker"}},
   1}]}.
 [
 {pkg_hash,[
