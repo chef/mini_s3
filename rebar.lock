@@ -7,7 +7,7 @@
   0},
  {<<"erlcloud">>,
   {git,"https://github.com/chef/erlcloud",
-       {branch,"lbaker/presigned-headers"}},
+       {ref,"27724cc615bb71595e88665ffd3ea083bf51ecb3"}},
   0},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.11.0">>},1},
  {<<"lhttpc">>,
