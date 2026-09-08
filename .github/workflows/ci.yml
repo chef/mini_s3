@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:${{ matrix.otp }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # 26 is what chef-server currently pins; 27 and 28 are covered so
+        # regressions surface before that pin moves.
+        otp: ['26', '27', '28']
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile
+        run: rebar3 compile
+      - name: EUnit
+        run: rebar3 eunit
+
+  dialyzer:
+    name: Dialyzer
+    runs-on: ubuntu-latest
+    container:
+      image: erlang:26
+    steps:
+      - uses: actions/checkout@v4
+      - run: rebar3 dialyzer
