@@ -372,7 +372,8 @@ expiration_time_v4({TimeToLive, Interval}) ->
                        true -> ?DAY - XAmzDateSecOffset;
                        _    -> Interval
                   end,
-    Lifetime = case (L = TimeToLive + NewInterval) > ?WEEKSEC of
+    L = TimeToLive + NewInterval,
+    Lifetime = case L > ?WEEKSEC of
                    true -> ?WEEKSEC;
                    _ -> L
                end,
