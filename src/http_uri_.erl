@@ -117,7 +117,11 @@ parse(AbsURI, Opts) ->
 	{error, Reason} ->
 	    {error, Reason};
 	{Scheme, DefaultPort, Rest} ->
-	    case (catch parse_uri_rest(Scheme, DefaultPort, Rest, Opts)) of
+	    case try parse_uri_rest(Scheme, DefaultPort, Rest, Opts)
+		 catch
+		     throw:Thrown -> Thrown;
+		     _:_ -> malformed
+		 end of
                 {ok, Result} ->
                     {ok, Result};
 		{error, Reason} ->
