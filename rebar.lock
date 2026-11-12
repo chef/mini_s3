@@ -7,12 +7,12 @@
   0},
  {<<"erlcloud">>,
   {git,"https://github.com/chef/erlcloud",
-       {branch,"CHEF-11677/CHEF-12498/lbaker"}},
+       {branch,"CHEF-37251/lbaker"}},
   0},
  {<<"jsx">>,{pkg,<<"jsx">>,<<"2.11.0">>},1},
  {<<"lhttpc">>,
   {git,"https://github.com/chef/lhttpc",
-       {ref,"b8ea2a03b081c65902600e358cbdb17b5f826ffe"}},
+       {ref,"b5a14dc5ec9b778bca54de66a6cff32db98a43d4"}},
   1}]}.
 [
 {pkg_hash,[
